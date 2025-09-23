@@ -26,7 +26,7 @@ App::App()
     // Generally, in Vulkan, we call the GPU a "device" and the CPU/OS combination a "host."
     std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-    // Etna does all of the Vulkan initialization heavy lifting.
+    // Etna does all the Vulkan initialization heavy lifting.
     // You can skip figuring out how it works for now.
     etna::initialize(etna::InitParams{
       .applicationName = "Local Shadertoy",
@@ -74,7 +74,28 @@ App::App()
     resolution = {w, h};
   }
 
-  // TODO: Initialize any additional resources you require here!
+
+  etna::create_program("toy",
+    {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
+
+  result = etna::get_context().createImage(etna::Image::CreateInfo{
+    .extent = vk::Extent3D{resolution.x, resolution.y, 1},
+    .name = "buf",
+    .format = vk::Format::eR8G8B8A8Unorm,
+    .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+  });
+
+  pipeline = etna::get_context().getPipelineManager().createComputePipeline("toy", {});
+  sampler = etna::Sampler(etna::Sampler::CreateInfo{
+    .name = "sampler",
+  });
+
+  params.resolutionX = resolution.x;
+  params.resolutionY = resolution.y;
+  params.mouseX = params.mouseY = 0.0f;
+  params.time = 0.0f;
+
+  startTime = std::chrono::steady_clock::now();
 }
 
 App::~App()
@@ -87,6 +108,8 @@ void App::run()
   while (!osWindow->isBeingClosed())
   {
     windowing.poll();
+
+    updateParams();
 
     drawFrame();
   }
@@ -116,10 +139,10 @@ void App::drawFrame()
 
     ETNA_CHECK_VK_RESULT(currentCmdBuf.begin(vk::CommandBufferBeginInfo{}));
     {
-      // First of all, we need to "initialize" th "backbuffer", aka the current swapchain
+      // First of all, we need to "initialize" the "backbuffer", aka the current swapchain
       // image, into a state that is appropriate for us working with it. The initial state
       // is considered to be "undefined" (aka "I contain trash memory"), by the way.
-      // "Transfer" in vulkanese means "copy or blit".
+      // "Transfer" in vulkan means "copy or blit".
       // Note that Etna sometimes calls this for you to make life simpler, read Etna's code!
       etna::set_state(
         currentCmdBuf,
@@ -140,7 +163,60 @@ void App::drawFrame()
 
 
       // TODO: Record your commands here!
+      auto toyInfo = etna::get_shader_program("toy");
+      const auto set = etna::create_descriptor_set(
+        toyInfo.getDescriptorLayoutId(0),
+        currentCmdBuf,
+        {
+          etna::Binding{0, result.genBinding(sampler.get(), vk::ImageLayout::eGeneral)}
+        });
 
+      vk::DescriptorSet vkSet = set.getVkSet();
+
+      currentCmdBuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline.getVkPipeline());
+      currentCmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeline.getVkPipelineLayout(),
+        0, 1, &vkSet, 0, nullptr);
+
+      currentCmdBuf.pushConstants(
+        pipeline.getVkPipelineLayout(),
+        vk::ShaderStageFlagBits::eCompute,
+        0,
+        sizeof(params),
+        &params);
+      etna::flush_barriers(currentCmdBuf);
+
+      currentCmdBuf.dispatch(
+        (resolution.x + 31) / 32,
+        (resolution.y + 31) / 32, 1);
+      etna::set_state(
+        currentCmdBuf,
+        result.get(),
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferRead,
+        vk::ImageLayout::eTransferSrcOptimal,
+        vk::ImageAspectFlagBits::eColor);
+      etna::flush_barriers(currentCmdBuf);
+
+      constexpr auto kSubresurce = vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
+      const vk::ArrayWrapper1D<vk::Offset3D, 2UL> kOffsets = {
+        {vk::Offset3D{0, 0, 0},
+         vk::Offset3D{static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y), 1}}};
+
+      const vk::ImageBlit kRegion = {
+        .srcSubresource = kSubresurce,
+        .srcOffsets = kOffsets,
+        .dstSubresource = kSubresurce,
+        .dstOffsets = kOffsets,
+      };
+
+      currentCmdBuf.blitImage(
+        result.get(),
+        vk::ImageLayout::eTransferSrcOptimal,
+        backbuffer,
+        vk::ImageLayout::eTransferDstOptimal,
+        1,
+        &kRegion,
+        vk::Filter::eLinear);
 
       // At the end of "rendering", we are required to change how the pixels of the
       // swpchain image are laid out in memory to something that is appropriate
@@ -188,4 +264,12 @@ void App::drawFrame()
     });
     ETNA_VERIFY((resolution == glm::uvec2{w, h}));
   }
+}
+
+void App::updateParams()
+{
+  glm::vec2 mousePosition = osWindow.get()->mouse.freePos;
+  params.time = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+  params.mouseX = mousePosition.x;
+  params.mouseY = mousePosition.y;
 }
