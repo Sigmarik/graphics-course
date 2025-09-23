@@ -109,6 +109,12 @@ void App::run()
   {
     windowing.poll();
 
+    if (is_held_down(osWindow->keyboard.keys[static_cast<int>(KeyboardKey::kR)]))
+    {
+      etna::reload_shaders();
+      startTime = std::chrono::steady_clock::now();
+    }
+
     updateParams();
 
     drawFrame();
