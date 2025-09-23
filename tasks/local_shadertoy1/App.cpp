@@ -74,7 +74,27 @@ App::App()
     resolution = {w, h};
   }
 
-  // TODO: Initialize any additional resources you require here!
+  etna::create_program("toy",
+    {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
+
+  result = etna::get_context().createImage(etna::Image::CreateInfo{
+    .extent = vk::Extent3D{resolution.x, resolution.y, 1},
+    .name = "buf",
+    .format = vk::Format::eR8G8B8A8Unorm,
+    .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+  });
+
+  pipeline = etna::get_context().getPipelineManager().createComputePipeline("toy", {});
+  sampler = etna::Sampler(etna::Sampler::CreateInfo{
+    .name = "sampler",
+  });
+
+  params.resolutionX = resolution.x;
+  params.resolutionY = resolution.y;
+  params.mouseX = params.mouseY = 0.0f;
+  params.time = 0.0f;
+
+  startTime = std::chrono::steady_clock::now();
 }
 
 App::~App()
@@ -87,6 +107,8 @@ void App::run()
   while (!osWindow->isBeingClosed())
   {
     windowing.poll();
+
+    updateParams();
 
     drawFrame();
   }
@@ -188,4 +210,12 @@ void App::drawFrame()
     });
     ETNA_VERIFY((resolution == glm::uvec2{w, h}));
   }
+}
+
+void App::updateParams()
+{
+  glm::vec2 mousePosition = osWindow.get()->mouse.freePos;
+  params.time = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+  params.mouseX = mousePosition.x;
+  params.mouseY = mousePosition.y;
 }
