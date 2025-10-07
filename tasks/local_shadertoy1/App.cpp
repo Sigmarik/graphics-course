@@ -197,17 +197,17 @@ void App::drawFrame()
         vk::ImageAspectFlagBits::eColor);
       etna::flush_barriers(currentCmdBuf);
 
-      constexpr auto kSubresurce =
+      auto subresource =
         vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
-      const vk::ArrayWrapper1D<vk::Offset3D, 2UL> kOffsets = {
+      vk::ArrayWrapper1D<vk::Offset3D, 2UL> offsets = {
         {vk::Offset3D{0, 0, 0},
          vk::Offset3D{static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y), 1}}};
 
       const vk::ImageBlit kRegion = {
-        .srcSubresource = kSubresurce,
-        .srcOffsets = kOffsets,
-        .dstSubresource = kSubresurce,
-        .dstOffsets = kOffsets,
+        .srcSubresource = subresource,
+        .srcOffsets = offsets,
+        .dstSubresource = subresource,
+        .dstOffsets = offsets,
       };
 
       currentCmdBuf.blitImage(
