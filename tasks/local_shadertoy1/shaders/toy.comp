@@ -220,19 +220,9 @@ vec3 shade(vec3 normal, vec3 view)
   return direct * 0.3 + ao * 0.9  + spec * 0.2;
 }
 
-vec3 saturate(vec3 color, float amount)
-{
-  vec3 result = color;
-  result.x = pow(result.x, amount);
-  result.y = pow(result.y, amount);
-  result.z = pow(result.z, amount);
-  return result;
-}
-
 vec3 colorCorrect(vec3 color)
 {
   vec3 result = color;
-  result = saturate(result, 1.5);
   result = smoothstep(0.0, 1.0, result);
   return result;
 }
