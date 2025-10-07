@@ -28,21 +28,23 @@ App::App()
 
     // Etna does all the Vulkan initialization heavy lifting.
     // You can skip figuring out how it works for now.
-    etna::initialize(etna::InitParams{
-      .applicationName = "Local Shadertoy",
-      .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
-      .instanceExtensions = instanceExtensions,
-      .deviceExtensions = deviceExtensions,
-      // Replace with an index if etna detects your preferred GPU incorrectly
-      .physicalDeviceIndexOverride = {},
-      .numFramesInFlight = 1,
-    });
+    etna::initialize(
+      etna::InitParams{
+        .applicationName = "Local Shadertoy",
+        .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
+        .instanceExtensions = instanceExtensions,
+        .deviceExtensions = deviceExtensions,
+        // Replace with an index if etna detects your preferred GPU incorrectly
+        .physicalDeviceIndexOverride = {},
+        .numFramesInFlight = 1,
+      });
   }
 
   // Now we can create an OS window
-  osWindow = windowing.createWindow(OsWindow::CreateInfo{
-    .resolution = resolution,
-  });
+  osWindow = windowing.createWindow(
+    OsWindow::CreateInfo{
+      .resolution = resolution,
+    });
 
   // But we also need to hook the OS window up to Vulkan manually!
   {
@@ -51,17 +53,19 @@ App::App()
     auto surface = osWindow->createVkSurface(etna::get_context().getInstance());
 
     // Then we pass it to Etna to do the complicated work for us
-    vkWindow = etna::get_context().createWindow(etna::Window::CreateInfo{
-      .surface = std::move(surface),
-    });
+    vkWindow = etna::get_context().createWindow(
+      etna::Window::CreateInfo{
+        .surface = std::move(surface),
+      });
 
     // And finally ask Etna to create the actual swapchain so that we can
     // get (different) images each frame to render stuff into.
     // Here, we do not support window resizing, so we only need to call this once.
-    auto [w, h] = vkWindow->recreateSwapchain(etna::Window::DesiredProperties{
-      .resolution = {resolution.x, resolution.y},
-      .vsync = useVsync,
-    });
+    auto [w, h] = vkWindow->recreateSwapchain(
+      etna::Window::DesiredProperties{
+        .resolution = {resolution.x, resolution.y},
+        .vsync = useVsync,
+      });
 
     // Technically, Vulkan might fail to initialize a swapchain with the requested
     // resolution and pick a different one. This, however, does not occur on platforms
@@ -74,20 +78,21 @@ App::App()
   commandManager = etna::get_context().createPerFrameCmdMgr();
 
 
-  etna::create_program("toy",
-    {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
+  etna::create_program("toy", {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
 
-  result = etna::get_context().createImage(etna::Image::CreateInfo{
-    .extent = vk::Extent3D{resolution.x, resolution.y, 1},
-    .name = "buf",
-    .format = vk::Format::eR8G8B8A8Unorm,
-    .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
-  });
+  result = etna::get_context().createImage(
+    etna::Image::CreateInfo{
+      .extent = vk::Extent3D{resolution.x, resolution.y, 1},
+      .name = "buf",
+      .format = vk::Format::eR8G8B8A8Unorm,
+      .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+    });
 
   pipeline = etna::get_context().getPipelineManager().createComputePipeline("toy", {});
-  sampler = etna::Sampler(etna::Sampler::CreateInfo{
-    .name = "sampler",
-  });
+  sampler = etna::Sampler(
+    etna::Sampler::CreateInfo{
+      .name = "sampler",
+    });
 
   params.resolutionX = resolution.x;
   params.resolutionY = resolution.y;
@@ -172,15 +177,13 @@ void App::drawFrame()
       const auto set = etna::create_descriptor_set(
         toyInfo.getDescriptorLayoutId(0),
         currentCmdBuf,
-        {
-          etna::Binding{0, result.genBinding(sampler.get(), vk::ImageLayout::eGeneral)}
-        });
+        {etna::Binding{0, result.genBinding(sampler.get(), vk::ImageLayout::eGeneral)}});
 
       vk::DescriptorSet vkSet = set.getVkSet();
 
       currentCmdBuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline.getVkPipeline());
-      currentCmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeline.getVkPipelineLayout(),
-        0, 1, &vkSet, 0, nullptr);
+      currentCmdBuf.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, pipeline.getVkPipelineLayout(), 0, 1, &vkSet, 0, nullptr);
 
       currentCmdBuf.pushConstants(
         pipeline.getVkPipelineLayout(),
@@ -190,9 +193,7 @@ void App::drawFrame()
         &params);
       etna::flush_barriers(currentCmdBuf);
 
-      currentCmdBuf.dispatch(
-        (resolution.x + 31) / 32,
-        (resolution.y + 31) / 32, 1);
+      currentCmdBuf.dispatch((resolution.x + 31) / 32, (resolution.y + 31) / 32, 1);
       etna::set_state(
         currentCmdBuf,
         result.get(),
@@ -202,7 +203,8 @@ void App::drawFrame()
         vk::ImageAspectFlagBits::eColor);
       etna::flush_barriers(currentCmdBuf);
 
-      constexpr auto kSubresurce = vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
+      constexpr auto kSubresurce =
+        vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
       const vk::ArrayWrapper1D<vk::Offset3D, 2UL> kOffsets = {
         {vk::Offset3D{0, 0, 0},
          vk::Offset3D{static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y), 1}}};
@@ -262,10 +264,11 @@ void App::drawFrame()
   // After a window us un-minimized, we need to restore the swapchain to continue rendering.
   if (!nextSwapchainImage && osWindow->getResolution() != glm::uvec2{0, 0})
   {
-    auto [w, h] = vkWindow->recreateSwapchain(etna::Window::DesiredProperties{
-      .resolution = {resolution.x, resolution.y},
-      .vsync = useVsync,
-    });
+    auto [w, h] = vkWindow->recreateSwapchain(
+      etna::Window::DesiredProperties{
+        .resolution = {resolution.x, resolution.y},
+        .vsync = useVsync,
+      });
     ETNA_VERIFY((resolution == glm::uvec2{w, h}));
   }
 }
