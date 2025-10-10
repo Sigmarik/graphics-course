@@ -1,5 +1,9 @@
 #pragma once
 
+#include "etna/BlockingTransferHelper.hpp"
+#include "etna/GraphicsPipeline.hpp"
+
+
 #include <chrono>
 
 #include <etna/Window.hpp>
@@ -42,8 +46,8 @@ private:
   };
 
   etna::Sampler sampler;
-  etna::Image result;
-  etna::ComputePipeline pipeline;
+
+  etna::GraphicsPipeline pipeline;
 
   ShaderParams params;
 

@@ -75,7 +75,7 @@ App::App()
   }
 
 
-  etna::create_program("toy", {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
+  etna::create_program("toy", {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.frag.spv"});
 
   result = etna::get_context().createImage(etna::Image::CreateInfo{
     .extent = vk::Extent3D{resolution.x, resolution.y, 1},

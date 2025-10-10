@@ -1,8 +1,6 @@
-#version 430
+#version 450
 
-layout(local_size_x = 32, local_size_y = 32) in;
-
-layout(binding = 0, rgba8) uniform image2D resultImage;
+layout(location = 0) out vec4 out_fragColor;
 
 layout(push_constant) uniform params
 {
@@ -12,6 +10,11 @@ layout(push_constant) uniform params
   float mouseY;
   float time;
 } params_t;
+
+layout(location = 0) in VS_OUT
+{
+  vec2 wPos;
+} surf;
 
 float iTime()
 {
@@ -299,13 +302,12 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 
 void main()
 {
-  ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-  ivec2 flipped = fragCoord;
-  flipped.y = iResolution().y - flipped.y;
+  vec2 pos = surf.wPos / 2.0 + vec2(0.5);
+  pos.y = 1.0 - pos.y;
+  pos = pos * vec2(iResolution());
 
   vec4 fragColor = vec4(0.0);
-  mainImage(fragColor, flipped);
+  mainImage(fragColor, pos);
 
-  if (fragCoord.x < iResolution().x && fragCoord.y < iResolution().y)
-    imageStore(resultImage, fragCoord, fragColor);
+  out_fragColor = fragColor;
 }
