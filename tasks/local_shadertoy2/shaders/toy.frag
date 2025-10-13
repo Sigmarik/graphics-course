@@ -1,5 +1,7 @@
 #version 450
 
+layout(binding = 0) uniform sampler2D iBallTexture;
+
 layout(location = 0) out vec4 out_fragColor;
 
 layout(push_constant) uniform params
@@ -68,11 +70,6 @@ const float kPi = 3.1415926535;
 
 vec3 ballColor(vec3 worldNormal)
 {
-  vec3 kYellow = rgba(255, 210, 47, 1);
-  vec3 kRed = rgba(255, 92, 92, 1);
-  vec3 kBlue = rgba(77, 213, 231, 1);
-  vec3 kWhite = rgba(235, 235, 235, 1);
-
   mat3 rotation = mat3(
   0.9659258, -0.2588190, -0.0000000,
   0.2241439,  0.8365163, -0.5000000,
@@ -80,37 +77,10 @@ vec3 ballColor(vec3 worldNormal)
 
   vec3 normal = rotation * worldNormal;
 
-  if (length(normal.xz) < 0.3)
-  {
-    return kWhite;
-  }
+  float yaw = atan(normal.z, normal.x) / kPi / 2.0;
+  float pitch = atan(normal.y, length(normal.xz)) / kPi + 0.5;
 
-  vec3 color = kWhite;
-
-  float angle = atan(normal.z, normal.x) + kPi;
-  float section = angle / kPi / 2.0;
-  int segment = int(section * 6.0);
-
-  if (segment % 2 == 0)
-  {
-    color = kWhite;
-  }
-  else if (segment == 1)
-  {
-    color = kRed;
-  }
-  else if (segment == 3)
-  {
-    color = kYellow;
-  }
-  else if (segment == 5)
-  {
-    color = kBlue;
-  }
-
-  color -= vec3(1.0 / ((length(normal.xz) - 0.3) * 100.0 + 9.0));
-
-  return color;
+  return texture(iBallTexture, vec2(yaw, pitch)).rgb;
 }
 
 float waterPlane(vec3 pos)
