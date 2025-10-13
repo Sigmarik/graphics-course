@@ -12,3 +12,8 @@ target_add_shaders(local_shadertoy2
         shaders/toy.frag
         shaders/intermediate.frag
 )
+
+target_include_directories(local_shadertoy2 PRIVATE ${PROJECT_SOURCE_DIR}/include)
+
+add_compile_definitions(local_shadertoy2 PRIVATE
+        TEXTURES_ROOT="${PROJECT_SOURCE_DIR}/resources/textures/")
