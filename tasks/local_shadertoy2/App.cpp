@@ -2,6 +2,9 @@
 
 #include "etna/RenderTargetStates.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include <etna/Etna.hpp>
 #include <etna/GlobalContext.hpp>
 #include <etna/PipelineManager.hpp>
@@ -159,6 +162,25 @@ void App::drawFrame()
   // First, get a command buffer to write GPU commands into.
   auto currentCmdBuf = commandManager->acquireNext();
 
+  if (!importedTextures)
+  {
+    importedTextures = true;
+    int dimX, dimY, components;
+    unsigned char* picData =
+      stbi_load(TEXTURES_ROOT "cloudy_sky.png", &dimX, &dimY, &components, 4);
+    assert(picData && "Failed to load the skysphere");
+
+    etna::Image::CreateInfo fileTextureInfo{
+      .extent = vk::Extent3D{static_cast<uint32_t>(dimX), static_cast<uint32_t>(dimY), 1},
+      .name = "fileTexture",
+      .format = vk::Format::eR8G8B8A8Srgb,
+      .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
+    };
+    skyTexture = etna::create_image_from_bytes(fileTextureInfo, currentCmdBuf, picData);
+
+    stbi_image_free(picData);
+  }
+
   // Next, tell Etna that we are going to start processing the next frame.
   etna::begin_frame();
 
@@ -213,6 +235,14 @@ void App::drawFrame()
 
       etna::set_state(
         currentCmdBuf,
+        skyTexture.get(),
+        vk::PipelineStageFlagBits2::eFragmentShader,
+        vk::AccessFlagBits2::eColorAttachmentRead,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::ImageAspectFlagBits::eColor);
+
+      etna::set_state(
+        currentCmdBuf,
         backbuffer,
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
         vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -229,7 +259,9 @@ void App::drawFrame()
           toyBasicInfo.getDescriptorLayoutId(0),
           currentCmdBuf,
           {etna::Binding{
-            0, ballTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)}});
+             0, ballTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)},
+           etna::Binding{
+             1, skyTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)}});
 
         vk::DescriptorSet vkSet = set.getVkSet();
 

@@ -47,6 +47,9 @@ private:
 
   etna::Sampler sampler;
 
+  bool importedTextures = false;
+
+  etna::Image skyTexture;
   etna::Image ballTexture;
   static constexpr glm::uvec2 BALL_TEXTURE_RESOLUTION{2048, 2048};
 
