@@ -47,7 +47,11 @@ private:
 
   etna::Sampler sampler;
 
-  etna::GraphicsPipeline pipeline;
+  etna::Image ballTexture;
+  static constexpr glm::uvec2 BALL_TEXTURE_RESOLUTION{2048, 2048};
+
+  etna::GraphicsPipeline intermediatePipeline;
+  etna::GraphicsPipeline mainPipeline;
 
   ShaderParams params;
 
