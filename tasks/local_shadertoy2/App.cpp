@@ -80,8 +80,13 @@ App::App()
     "toy_basic",
     {LOCAL_SHADERTOY2_SHADERS_ROOT "toy.frag.spv", LOCAL_SHADERTOY2_SHADERS_ROOT "toy.vert.spv"});
 
-  pipeline = {};
-  pipeline = etna::get_context().getPipelineManager().createGraphicsPipeline(
+  etna::create_program(
+    "intermediate",
+    {LOCAL_SHADERTOY2_SHADERS_ROOT "intermediate.frag.spv",
+     LOCAL_SHADERTOY2_SHADERS_ROOT "toy.vert.spv"});
+
+  mainPipeline = {};
+  mainPipeline = etna::get_context().getPipelineManager().createGraphicsPipeline(
     "toy_basic",
     etna::GraphicsPipeline::CreateInfo{
       .fragmentShaderOutput =
@@ -90,6 +95,24 @@ App::App()
           .depthAttachmentFormat = vk::Format::eD32Sfloat,
         },
     });
+
+  intermediatePipeline = {};
+  intermediatePipeline = etna::get_context().getPipelineManager().createGraphicsPipeline(
+    "intermediate",
+    etna::GraphicsPipeline::CreateInfo{
+      .fragmentShaderOutput =
+        {
+          .colorAttachmentFormats = {vk::Format::eB8G8R8A8Srgb},
+          .depthAttachmentFormat = vk::Format::eD32Sfloat,
+        },
+    });
+
+  ballTexture = etna::get_context().createImage(etna::Image::CreateInfo{
+    .extent = vk::Extent3D{BALL_TEXTURE_RESOLUTION.x, BALL_TEXTURE_RESOLUTION.y, 1},
+    .name = "ballTexture",
+    .format = vk::Format::eB8G8R8A8Srgb,
+    .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
+  });
 
   sampler = etna::Sampler(etna::Sampler::CreateInfo{
     .filter = vk::Filter::eLinear,
@@ -153,6 +176,43 @@ void App::drawFrame()
     {
       etna::set_state(
         currentCmdBuf,
+        ballTexture.get(),
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::ImageLayout::eColorAttachmentOptimal,
+        vk::ImageAspectFlagBits::eColor);
+      etna::flush_barriers(currentCmdBuf);
+
+      {
+        etna::RenderTargetState state{
+          currentCmdBuf,
+          {{}, {BALL_TEXTURE_RESOLUTION.x, BALL_TEXTURE_RESOLUTION.y}},
+          {{ballTexture.get(), ballTexture.getView({})}},
+          {}};
+
+        currentCmdBuf.bindPipeline(
+          vk::PipelineBindPoint::eGraphics, intermediatePipeline.getVkPipeline());
+
+        currentCmdBuf.pushConstants(
+          intermediatePipeline.getVkPipelineLayout(),
+          vk::ShaderStageFlagBits::eFragment,
+          0,
+          sizeof(params),
+          &params);
+
+        currentCmdBuf.draw(3, 1, 0, 0);
+      }
+
+      etna::set_state(
+        currentCmdBuf,
+        ballTexture.get(),
+        vk::PipelineStageFlagBits2::eFragmentShader,
+        vk::AccessFlagBits2::eColorAttachmentRead,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::ImageAspectFlagBits::eColor);
+
+      etna::set_state(
+        currentCmdBuf,
         backbuffer,
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
         vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -164,10 +224,28 @@ void App::drawFrame()
         etna::RenderTargetState state{
           currentCmdBuf, {{}, {resolution.x, resolution.y}}, {{backbuffer, backbufferView}}, {}};
 
-        currentCmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getVkPipeline());
+        auto toyBasicInfo = etna::get_shader_program("toy_basic");
+        auto set = etna::create_descriptor_set(
+          toyBasicInfo.getDescriptorLayoutId(0),
+          currentCmdBuf,
+          {etna::Binding{
+            0, ballTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)}});
+
+        vk::DescriptorSet vkSet = set.getVkSet();
+
+        currentCmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, mainPipeline.getVkPipeline());
+
+        currentCmdBuf.bindDescriptorSets(
+          vk::PipelineBindPoint::eGraphics,
+          mainPipeline.getVkPipelineLayout(),
+          0,
+          1,
+          &vkSet,
+          0,
+          nullptr);
 
         currentCmdBuf.pushConstants(
-          pipeline.getVkPipelineLayout(),
+          mainPipeline.getVkPipelineLayout(),
           vk::ShaderStageFlagBits::eFragment,
           0,
           sizeof(params),
