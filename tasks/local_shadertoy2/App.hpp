@@ -28,6 +28,8 @@ private:
 
   void updateParams();
 
+  void importTextures();
+
 private:
   OsWindowingManager windowing;
   std::unique_ptr<OsWindow> osWindow;
@@ -46,8 +48,6 @@ private:
   };
 
   etna::Sampler sampler;
-
-  bool importedTextures = false;
 
   etna::Image skyTexture;
   etna::Image ballTexture;

@@ -137,6 +137,8 @@ App::~App()
 
 void App::run()
 {
+  importTextures();
+
   while (!osWindow->isBeingClosed())
   {
     windowing.poll();
@@ -161,25 +163,6 @@ void App::drawFrame()
 {
   // First, get a command buffer to write GPU commands into.
   auto currentCmdBuf = commandManager->acquireNext();
-
-  if (!importedTextures)
-  {
-    importedTextures = true;
-    int dimX, dimY, components;
-    unsigned char* picData =
-      stbi_load(TEXTURES_ROOT "cloudy_sky.png", &dimX, &dimY, &components, 4);
-    assert(picData && "Failed to load the skysphere");
-
-    etna::Image::CreateInfo fileTextureInfo{
-      .extent = vk::Extent3D{static_cast<uint32_t>(dimX), static_cast<uint32_t>(dimY), 1},
-      .name = "fileTexture",
-      .format = vk::Format::eR8G8B8A8Srgb,
-      .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
-    };
-    skyTexture = etna::create_image_from_bytes(fileTextureInfo, currentCmdBuf, picData);
-
-    stbi_image_free(picData);
-  }
 
   // Next, tell Etna that we are going to start processing the next frame.
   etna::begin_frame();
@@ -339,4 +322,23 @@ void App::updateParams()
   params.time = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
   params.mouseX = mousePosition.x;
   params.mouseY = mousePosition.y;
+}
+
+void App::importTextures()
+{
+  auto cmdBuf = commandManager->acquireNext();
+
+  int dimX = 0, dimY = 0;
+  stbi_uc* bytes = stbi_load(TEXTURES_ROOT "cloudy_sky.png", &dimX, &dimY, nullptr, 4);
+  assert(bytes && "Failed to load the sky sphere");
+
+  etna::Image::CreateInfo fileTextureInfo{
+    .extent = vk::Extent3D{static_cast<unsigned>(dimX), static_cast<unsigned>(dimY), 1},
+    .name = "skySphere",
+    .format = vk::Format::eR8G8B8A8Srgb,
+    .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
+  };
+  skyTexture = etna::create_image_from_bytes(fileTextureInfo, cmdBuf, bytes);
+
+  stbi_image_free(bytes);
 }
