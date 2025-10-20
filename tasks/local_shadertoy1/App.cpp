@@ -28,16 +28,15 @@ App::App()
 
     // Etna does all of the Vulkan initialization heavy lifting.
     // You can skip figuring out how it works for now.
-    etna::initialize(
-      etna::InitParams{
-        .applicationName = "Local Shadertoy",
-        .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
-        .instanceExtensions = instanceExtensions,
-        .deviceExtensions = deviceExtensions,
-        // Replace with an index if etna detects your preferred GPU incorrectly
-        .physicalDeviceIndexOverride = {},
-        .numFramesInFlight = 1,
-      });
+    etna::initialize(etna::InitParams{
+      .applicationName = "Local Shadertoy",
+      .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
+      .instanceExtensions = instanceExtensions,
+      .deviceExtensions = deviceExtensions,
+      // Replace with an index if etna detects your preferred GPU incorrectly
+      .physicalDeviceIndexOverride = {},
+      .numFramesInFlight = 1,
+    });
   }
 
   // Next, we need a magical Etna helper to send commands to the GPU.
@@ -45,10 +44,9 @@ App::App()
   commandManager = etna::get_context().createPerFrameCmdMgr();
 
   // Now we can create an OS window
-  osWindow = windowing.createWindow(
-    OsWindow::CreateInfo{
-      .resolution = resolution,
-    });
+  osWindow = windowing.createWindow(OsWindow::CreateInfo{
+    .resolution = resolution,
+  });
 
   // But we also need to hook the OS window up to Vulkan manually!
   {
@@ -57,10 +55,9 @@ App::App()
     auto surface = osWindow->createVkSurface(etna::get_context().getInstance());
 
     // Then we pass it to Etna to do the complicated work for us
-    vkWindow = etna::get_context().createWindow(
-      etna::Window::CreateInfo{
-        .surface = std::move(surface),
-      });
+    vkWindow = etna::get_context().createWindow(etna::Window::CreateInfo{
+      .surface = std::move(surface),
+    });
 
     // And finally ask Etna to create the actual swapchain so that we can
     // get (different) images each frame to render stuff into.
@@ -77,22 +74,19 @@ App::App()
     resolution = {w, h};
   }
 
-  etna::create_program("toy",
-    {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
+  etna::create_program("toy", {LOCAL_SHADERTOY1_SHADERS_ROOT "toy.comp.spv"});
 
-  result = etna::get_context().createImage(
-    etna::Image::CreateInfo{
-      .extent = vk::Extent3D{resolution.x, resolution.y, 1},
-      .name = "buf",
-      .format = vk::Format::eR8G8B8A8Unorm,
-      .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
-    });
+  result = etna::get_context().createImage(etna::Image::CreateInfo{
+    .extent = vk::Extent3D{resolution.x, resolution.y, 1},
+    .name = "buf",
+    .format = vk::Format::eR8G8B8A8Unorm,
+    .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+  });
 
   pipeline = etna::get_context().getPipelineManager().createComputePipeline("toy", {});
-  sampler = etna::Sampler(
-    etna::Sampler::CreateInfo{
-      .name = "sampler",
-    });
+  sampler = etna::Sampler(etna::Sampler::CreateInfo{
+    .name = "sampler",
+  });
 
   params.resolutionX = resolution.x;
   params.resolutionY = resolution.y;
