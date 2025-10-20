@@ -31,7 +31,8 @@ ivec3 iResolution()
 
 vec3 iMouse()
 {
-  return vec3(params_t.mouseX, iResolution().y - params_t.mouseY, 0.0);
+  return vec3(0.0);
+  //return vec3(params_t.mouseX, iResolution().y - params_t.mouseY, 0.0);
 }
 
 const vec3 kUp = vec3(0.0, 1.0, 0.0);
@@ -113,7 +114,7 @@ float trace(int object, vec3 start, vec3 ray, out vec3 position, out vec3 normal
 {
   ray = normalize(ray);
 
-  int iterations = 17;
+  int iterations = 850;
 
   vec3 pos = start;
 
