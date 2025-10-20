@@ -3,6 +3,9 @@
 #include "etna/RenderTargetStates.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
+#include "etna/Profiling.hpp"
+
+
 #include <stb_image.h>
 
 #include <etna/Etna.hpp>
@@ -153,6 +156,8 @@ void App::run()
     updateParams();
 
     drawFrame();
+
+    FrameMark;
   }
 
   // We need to wait for the GPU to execute the last frame before destroying
@@ -162,6 +167,8 @@ void App::run()
 
 void App::drawFrame()
 {
+  ZoneScoped;
+
   // First, get a command buffer to write GPU commands into.
   auto currentCmdBuf = commandManager->acquireNext();
 
@@ -190,6 +197,8 @@ void App::drawFrame()
       etna::flush_barriers(currentCmdBuf);
 
       {
+        ETNA_PROFILE_GPU(currentCmdBuf, ballTexture);
+
         etna::RenderTargetState state{
           currentCmdBuf,
           {{}, {BALL_TEXTURE_RESOLUTION.x, BALL_TEXTURE_RESOLUTION.y}},
@@ -207,6 +216,8 @@ void App::drawFrame()
           &params);
 
         currentCmdBuf.draw(3, 1, 0, 0);
+
+        ETNA_READ_BACK_GPU_PROFILING(currentCmdBuf);
       }
 
       etna::set_state(
@@ -235,6 +246,8 @@ void App::drawFrame()
       etna::flush_barriers(currentCmdBuf);
 
       {
+        ETNA_PROFILE_GPU(currentCmdBuf, mainFrame);
+
         etna::RenderTargetState state{
           currentCmdBuf, {{}, {resolution.x, resolution.y}}, {{backbuffer, backbufferView}}, {}};
 
@@ -268,6 +281,8 @@ void App::drawFrame()
           &params);
 
         currentCmdBuf.draw(3, 1, 0, 0);
+
+        ETNA_READ_BACK_GPU_PROFILING(currentCmdBuf);
       }
 
       // At the end of "rendering", we are required to change how the pixels of the
