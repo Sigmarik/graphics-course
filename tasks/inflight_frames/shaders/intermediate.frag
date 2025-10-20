@@ -7,14 +7,12 @@ layout(location = 0) in VS_OUT
     vec2 wPos;
 } surf;
 
-layout(push_constant) uniform params
+layout(binding = 0, set = 0) uniform AppData
 {
-    uint resolutionX;
-    uint resolutionY;
-    float mouseX;
-    float mouseY;
-    float time;
-} params_t;
+    ivec2 iResolution;
+    vec2 iMouse;
+    float iTime;
+};
 
 vec3 rgba(int red, int green, int blue, int alpha)
 {
@@ -33,7 +31,7 @@ void main() {
 
     float distanceFromPole = 180.0 - abs(pitch);
 
-    const float kPimpSize = 40.0 + sin(params_t.time * 5.0) * 20.0;
+    const float kPimpSize = 40.0 + sin(iTime * 5.0) * 20.0;
 
     if (distanceFromPole < kPimpSize)
     {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "etna/BlockingTransferHelper.hpp"
+#include "FrameMachine.hpp"
 #include "etna/GraphicsPipeline.hpp"
 
 
@@ -8,7 +8,6 @@
 
 #include <etna/Window.hpp>
 #include <etna/PerFrameCmdMgr.hpp>
-#include <etna/ComputePipeline.hpp>
 #include <etna/Image.hpp>
 #include <etna/Sampler.hpp>
 
@@ -55,6 +54,8 @@ private:
 
   etna::GraphicsPipeline intermediatePipeline;
   etna::GraphicsPipeline mainPipeline;
+
+  FrameMachine<etna::Buffer, 2> constants;
 
   ShaderParams params;
 

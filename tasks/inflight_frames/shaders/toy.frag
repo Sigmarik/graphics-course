@@ -5,35 +5,17 @@ layout(binding = 1) uniform sampler2D iSkyTexture;
 
 layout(location = 0) out vec4 out_fragColor;
 
-layout(push_constant) uniform params
+layout(binding = 2, set = 0) uniform AppData
 {
-  uint resolutionX;
-  uint resolutionY;
-  float mouseX;
-  float mouseY;
-  float time;
-} params_t;
+  ivec2 iResolution;
+  vec2 iMouse;
+  float iTime;
+};
 
 layout(location = 0) in VS_OUT
 {
   vec2 wPos;
 } surf;
-
-float iTime()
-{
-  return params_t.time;
-}
-
-ivec3 iResolution()
-{
-  return ivec3(params_t.resolutionX, params_t.resolutionY, 0);
-}
-
-vec3 iMouse()
-{
-  return vec3(0.0);
-  //return vec3(params_t.mouseX, iResolution().y - params_t.mouseY, 0.0);
-}
 
 const vec3 kUp = vec3(0.0, 1.0, 0.0);
 const float kEps = 0.01;
@@ -42,7 +24,7 @@ const float kBallRadius = 0.2;
 
 float smoothNoise(vec3 pos, float speed)
 {
-  float time = iTime() * 3.0 * speed;
+  float time = iTime * 3.0 * speed;
   return (
   sin(pos.x * 1.7 + pos.z * 0.3 + time) * 0.3 +
   cos(pos.x * 1.3 + pos.z * 0.5 + time * 0.7) * 0.2 +
@@ -257,15 +239,15 @@ vec3 shadeWater(vec3 pos, vec3 normal, vec3 view)
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-  vec2 mouse = iMouse().xy / iResolution().xy - vec2(0.5);
+  vec2 mouse = iMouse.xy / iResolution.xy - vec2(0.5);
 
   vec3 cameraPos = normalize(vec3(mouse.x, mouse.y + 0.7, 1.0)) * 0.9;
   vec3 forward = normalize(vec3(0.0, 0.1, 0.0) - cameraPos);
   vec3 right = normalize(cross(forward, kUp));
   vec3 up = normalize(cross(right, forward));
 
-  vec2 uv = fragCoord / iResolution().xy;
-  vec2 relativeScreen = (uv - 0.5) * iResolution().xy / iResolution().x * 2.0;
+  vec2 uv = fragCoord / iResolution;
+  vec2 relativeScreen = (uv - 0.5) * iResolution / iResolution.x * 2.0;
 
   vec3 ray = forward + relativeScreen.x * right + relativeScreen.y * up;
 
@@ -296,7 +278,7 @@ void main()
 {
   vec2 pos = surf.wPos / 2.0 + vec2(0.5);
   pos.y = 1.0 - pos.y;
-  pos = pos * vec2(iResolution());
+  pos = pos * vec2(iResolution);
 
   vec4 fragColor = vec4(0.0);
   mainImage(fragColor, pos);

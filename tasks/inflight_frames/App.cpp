@@ -3,6 +3,8 @@
 #include "etna/RenderTargetStates.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
+
+
 #include "etna/Profiling.hpp"
 
 
@@ -43,7 +45,7 @@ App::App()
       .deviceExtensions = deviceExtensions,
       // Replace with an index if etna detects your preferred GPU incorrectly
       .physicalDeviceIndexOverride = {},
-      .numFramesInFlight = 1,
+      .numFramesInFlight = 2,
     });
   }
 
@@ -126,6 +128,22 @@ App::App()
     .addressMode = vk::SamplerAddressMode::eRepeat,
     .name = "default_sampler"});
 
+  constants[0] = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = sizeof(ShaderParams),
+    .bufferUsage = vk::BufferUsageFlagBits::eUniformBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+    .name = "constants0",
+  });
+  constants[0].map();
+
+  constants[1] = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = sizeof(ShaderParams),
+    .bufferUsage = vk::BufferUsageFlagBits::eUniformBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+    .name = "constants1",
+  });
+  constants[1].map();
+
   params.resolutionX = resolution.x;
   params.resolutionY = resolution.y;
   params.mouseX = params.mouseY = 0.0f;
@@ -205,15 +223,28 @@ void App::drawFrame()
           {{ballTexture.get(), ballTexture.getView({})}},
           {}};
 
+        auto intermediateInfo = etna::get_shader_program("intermediate");
+        auto set = etna::create_descriptor_set(
+          intermediateInfo.getDescriptorLayoutId(0),
+          currentCmdBuf,
+          {etna::Binding{0, constants.get().genBinding()}});
+
+        vk::DescriptorSet vkSet = set.getVkSet();
+
         currentCmdBuf.bindPipeline(
           vk::PipelineBindPoint::eGraphics, intermediatePipeline.getVkPipeline());
 
-        currentCmdBuf.pushConstants(
+        currentCmdBuf.bindDescriptorSets(
+          vk::PipelineBindPoint::eGraphics,
           intermediatePipeline.getVkPipelineLayout(),
-          vk::ShaderStageFlagBits::eFragment,
           0,
-          sizeof(params),
-          &params);
+          1,
+          &vkSet,
+          0,
+          nullptr);
+
+        currentCmdBuf.bindPipeline(
+          vk::PipelineBindPoint::eGraphics, intermediatePipeline.getVkPipeline());
 
         currentCmdBuf.draw(3, 1, 0, 0);
 
@@ -258,7 +289,8 @@ void App::drawFrame()
           {etna::Binding{
              0, ballTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)},
            etna::Binding{
-             1, skyTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)}});
+             1, skyTexture.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)},
+           etna::Binding{2, constants.get().genBinding()}});
 
         vk::DescriptorSet vkSet = set.getVkSet();
 
@@ -272,13 +304,6 @@ void App::drawFrame()
           &vkSet,
           0,
           nullptr);
-
-        currentCmdBuf.pushConstants(
-          mainPipeline.getVkPipelineLayout(),
-          vk::ShaderStageFlagBits::eFragment,
-          0,
-          sizeof(params),
-          &params);
 
         currentCmdBuf.draw(3, 1, 0, 0);
 
@@ -339,6 +364,9 @@ void App::updateParams()
   params.time = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
   params.mouseX = mousePosition.x;
   params.mouseY = mousePosition.y;
+
+  std::memcpy(constants.get().data(), &params, sizeof(params));
+  constants.flip();
 }
 
 void App::importTextures()
