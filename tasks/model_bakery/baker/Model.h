@@ -28,6 +28,6 @@ struct Model
   std::vector<Vertex> vertices{};
   std::vector<index_t> indices{};
 
-private:
   void append(const Model& model);
+  void append(const Model& model, const glm::mat4& matrix);
 };
