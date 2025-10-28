@@ -20,8 +20,8 @@ struct Model
 {
   static std::optional<Model> fromGltf(const std::string& path);
 
-  void toBin(const std::string& path);
-  void toGltf(const std::string& path);
+  void toBin(const std::string& path) const;
+  void toGltf(const std::string& path) const;
 
   using index_t = unsigned int;
 

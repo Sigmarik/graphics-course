@@ -28,7 +28,8 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
 
 void WorldRenderer::loadScene(std::filesystem::path path)
 {
-  sceneMgr->selectScene(path);
+  sceneMgr->selectBinaryScene(path);
+  // sceneMgr->selectScene(path);
 }
 
 void WorldRenderer::loadShaders()

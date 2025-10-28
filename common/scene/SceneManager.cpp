@@ -371,6 +371,71 @@ void SceneManager::uploadData(
   transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
 }
 
+struct CompressedVertex
+{
+  float posX, posY, posZ;
+  unsigned char normX, normY, normZ;
+  float uvX, uvY;
+  unsigned char tanX, tanY, tanZ;
+};
+
+static uint32_t repack_vec3(unsigned char* vec)
+{
+  glm::vec3 normal;
+
+  normal.x = static_cast<float>(vec[0]) / 255.0f * 2.0f - 1.0f;
+  normal.y = static_cast<float>(vec[1]) / 255.0f * 2.0f - 1.0f;
+  normal.z = static_cast<float>(vec[2]) / 255.0f * 2.0f - 1.0f;
+
+  return encode_normal(glm::normalize(normal));
+}
+
+bool SceneManager::processBinaryMesh(
+  std::filesystem::path& path, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices)
+{
+  std::ifstream stream = std::ifstream(path, std::ios::binary);
+  if (stream.fail())
+  {
+    return true;
+  }
+
+  uint64_t indexCount = 0;
+  stream.read(reinterpret_cast<char*>(&indexCount), sizeof(indexCount));
+
+  indices = std::vector<uint32_t>(indexCount);
+  for (uint64_t i = 0; i < indexCount; ++i)
+  {
+    stream.read(reinterpret_cast<char*>(&indices[i]), sizeof(indices[i]));
+  }
+
+  uint64_t vertexSize = 0;
+  stream.read(reinterpret_cast<char*>(&vertexSize), sizeof(vertexSize));
+  vertices.resize(vertexSize);
+  for (uint64_t i = 0; i < vertexSize; ++i)
+  {
+    Vertex& vertex = vertices[i];
+
+    CompressedVertex vtx{};
+    stream.read(reinterpret_cast<char*>(&vtx.posX), sizeof(float) * 3);
+    stream.read(reinterpret_cast<char*>(&vtx.normX), sizeof(char) * 3);
+    stream.get();
+    stream.read(reinterpret_cast<char*>(&vtx.uvX), sizeof(float) * 2);
+    stream.read(reinterpret_cast<char*>(&vtx.tanX), sizeof(char) * 3);
+    stream.get();
+    stream.get();
+    stream.get();
+    stream.get();
+    stream.get();
+
+    vertex.positionAndNormal =
+      glm::vec4(vtx.posX, vtx.posY, vtx.posZ, std::bit_cast<float>(repack_vec3(&vtx.normX)));
+    vertex.texCoordAndTangentAndPadding =
+      glm::vec4(vtx.uvX, vtx.uvY, std::bit_cast<float>(repack_vec3(&vtx.tanX)), 0);
+  }
+
+  return false;
+}
+
 void SceneManager::selectScene(std::filesystem::path path)
 {
   auto maybeModel = loadModel(path);
@@ -394,6 +459,29 @@ void SceneManager::selectScene(std::filesystem::path path)
   meshes = std::move(meshs);
 
   uploadData(verts, inds);
+}
+
+void SceneManager::selectBinaryScene(std::filesystem::path path)
+{
+  instanceMatrices = {glm::identity<glm::mat4x4>()};
+  instanceMeshes = {0};
+
+  RenderElement renderElement{};
+  Mesh mesh{};
+  mesh.firstRelem = 0;
+  mesh.relemCount = 1;
+  std::vector<uint32_t> indices;
+  std::vector<Vertex> vertices;
+
+  processBinaryMesh(path, vertices, indices);
+
+  renderElement.indexCount = static_cast<uint32_t>(indices.size());
+  renderElement.indexOffset = 0;
+  renderElement.vertexOffset = 0;
+
+  renderElements = {renderElement};
+  meshes = {mesh};
+  uploadData(vertices, indices);
 }
 
 etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription()

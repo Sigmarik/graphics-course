@@ -3,6 +3,7 @@
 #include "tiny_gltf.h"
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stack>
 
@@ -307,18 +308,95 @@ std::optional<Model> Model::fromGltf(const std::string& path)
   return composite;
 }
 
-void Model::toBin(const std::string&)
+struct CompressedVertex
 {
-  std::cout << "Found " << vertices.size() << " vertices" << std::endl;
+  float posX, posY, posZ;
+  unsigned char normX, normY, normZ;
+  float uvX, uvY;
+  unsigned char tanX, tanY, tanZ;
+};
 
-  // TODO: Implement
-  std::cerr << "Implement `toBin`, please" << std::endl;
+template <class Type>
+static void write_any(std::ofstream& stream, const Type& value)
+{
+  stream.write(reinterpret_cast<const char*>(&value), sizeof(Type));
 }
 
-void Model::toGltf(const std::string&)
+static void add_padding(std::ofstream& stream, unsigned count)
+{
+  for (unsigned i = 0; i < count; ++i) {
+    stream.put('\0');
+  }
+}
+
+static void write_vertex(std::ofstream& stream, const CompressedVertex& vertex)
+{
+  write_any(stream, vertex.posX);
+  write_any(stream, vertex.posY);
+  write_any(stream, vertex.posZ);
+
+  write_any(stream, vertex.normX);
+  write_any(stream, vertex.normY);
+  write_any(stream, vertex.normZ);
+  add_padding(stream, 1);
+
+  write_any(stream, vertex.uvX);
+  write_any(stream, vertex.uvY);
+
+  write_any(stream, vertex.tanX);
+  write_any(stream, vertex.tanY);
+  write_any(stream, vertex.tanZ);
+  add_padding(stream, 5);
+}
+
+static unsigned char compress(float value)
+{
+  assert(value >= -1.0);
+  assert(value <= 1.0);
+
+  return static_cast<unsigned char>((value + 1.0) * 127.5);
+}
+
+static void write_vertex(std::ofstream& stream, const Vertex& vertex)
+{
+  CompressedVertex comp;
+  comp.posX = vertex.position.x;
+  comp.posY = vertex.position.y;
+  comp.posZ = vertex.position.z;
+  comp.normX = compress(vertex.normal.x);
+  comp.normY = compress(vertex.normal.y);
+  comp.normZ = compress(vertex.normal.z);
+  comp.uvX = vertex.texCoords.x;
+  comp.uvY = vertex.texCoords.y;
+  comp.tanX = compress(vertex.tangent.x);
+  comp.tanY = compress(vertex.tangent.y);
+  comp.tanZ = compress(vertex.tangent.z);
+
+  write_vertex(stream, comp);
+}
+
+void Model::toBin(const std::string& path) const
+{
+  std::ofstream stream(path, std::ios::binary);
+
+  size_t indexCount = indices.size();
+  stream.write(reinterpret_cast<char*>(&indexCount), sizeof(indexCount));
+  stream.write(reinterpret_cast<const char*>(&indices.front()), sizeof(index_t) * indexCount);
+
+  size_t vertexCount = vertices.size();
+  stream.write(reinterpret_cast<char*>(&vertexCount), sizeof(vertexCount));
+
+  for (const auto& vertex : vertices)
+  {
+    write_vertex(stream, vertex);
+  }
+
+  stream.close();
+}
+
+void Model::toGltf(const std::string&) const
 {
   // TODO: Implement
-  std::cerr << "Implement `toGltf`, please" << std::endl;
 }
 
 void Model::append(const Model& model)
@@ -357,7 +435,9 @@ void Model::append(const Model& model, const glm::mat4& matrix)
     Vertex transformed = vertex;
     transformed.position = apply_transform(matrix, transformed.position, 1.0f);
     transformed.normal = apply_transform(matrix, transformed.normal, 0.0f);
+    transformed.normal = glm::normalize(transformed.normal);
     transformed.tangent = apply_transform(matrix, transformed.tangent, 0.0f);
+    transformed.tangent = glm::normalize(transformed.tangent);
     vertices.emplace_back(transformed);
   }
 }

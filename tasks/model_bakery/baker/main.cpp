@@ -25,14 +25,11 @@ int main(int argc, char* argv[])
 
   Model& model = *maybeModel;
 
-  std::filesystem::path outPath = modelPath;
-  outPath.replace_extension(outPath.filename().string() + "_baked");
+  std::filesystem::path outPath =
+    modelPath.replace_filename(modelPath.filename().stem().string() + "_baked");
 
-  outPath.replace_extension("bin");
-  model.toBin(outPath.string());
-
-  outPath.replace_extension("gltf");
-  model.toGltf(outPath.string());
+  model.toBin(outPath.replace_extension("bin").string());
+  model.toGltf(outPath.replace_extension("gltf").string());
 
   return EXIT_SUCCESS;
 }

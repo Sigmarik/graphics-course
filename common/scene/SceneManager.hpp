@@ -35,6 +35,7 @@ public:
   SceneManager();
 
   void selectScene(std::filesystem::path path);
+  void selectBinaryScene(std::filesystem::path path);
 
   // Every instance is a mesh drawn with a certain transform
   // NOTE: maybe you can pass some additional data through unused matrix entries?
@@ -82,6 +83,11 @@ private:
   };
   ProcessedMeshes processMeshes(const tinygltf::Model& model) const;
   void uploadData(std::span<const Vertex> vertices, std::span<const std::uint32_t>);
+
+  static bool processBinaryMesh(
+    std::filesystem::path& path,
+    std::vector<Vertex>& vertices,
+    std::vector<uint32_t>& indices);
 
 private:
   tinygltf::TinyGLTF loader;
