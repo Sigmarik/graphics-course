@@ -35,7 +35,7 @@ public:
   SceneManager();
 
   void selectScene(std::filesystem::path path);
-  void selectBinaryScene(std::filesystem::path path);
+  void selectCompressedScene(std::filesystem::path path);
 
   // Every instance is a mesh drawn with a certain transform
   // NOTE: maybe you can pass some additional data through unused matrix entries?
@@ -81,13 +81,24 @@ private:
     std::vector<RenderElement> relems;
     std::vector<Mesh> meshes;
   };
-  ProcessedMeshes processMeshes(const tinygltf::Model& model) const;
-  void uploadData(std::span<const Vertex> vertices, std::span<const std::uint32_t>);
 
-  static bool processBinaryMesh(
-    std::filesystem::path& path,
-    std::vector<Vertex>& vertices,
-    std::vector<uint32_t>& indices);
+  struct ProcessedCompressedMeshes
+  {
+    const uint32_t* indexBuffer;
+    size_t indexCount;
+    const unsigned char* vertexBuffer;
+    size_t vertexBufferSize;
+    std::vector<RenderElement> relems;
+    std::vector<Mesh> meshes;
+  };
+  ProcessedMeshes processMeshes(const tinygltf::Model& model) const;
+  ProcessedCompressedMeshes processCompressedMeshes(const tinygltf::Model& model) const;
+  void uploadData(std::span<const Vertex> vertices, std::span<const std::uint32_t>);
+  void uploadCompressedData(
+    const uint32_t* indexBuffer,
+    size_t indexCount,
+    const unsigned char* vertexBuffer,
+    size_t vertexBufferSize);
 
 private:
   tinygltf::TinyGLTF loader;

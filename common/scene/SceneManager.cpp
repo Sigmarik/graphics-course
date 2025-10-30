@@ -367,6 +367,40 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
 
   return result;
 }
+SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
+  const tinygltf::Model& model) const
+{
+  assert(model.buffers.size() == 1);
+  assert(model.viewports.size() == 2);
+
+  ProcessedCompressedMeshes result;
+  result.indexBuffer = reinterpret_cast<const uint32_t*>(&model.buffers[0].data.front());
+  result.indexCount = model.bufferViews[0].byteLength / sizeof(uint32_t);
+
+  result.vertexBuffer = &model.buffers[1].data.front() + model.bufferViews[1].byteOffset;
+  result.vertexBufferSize = model.bufferViews[1].byteLength;
+
+  for (const auto& mesh : model.meshes)
+  {
+    Mesh newMesh;
+    newMesh.firstRelem = static_cast<uint32_t>(result.relems.size());
+    newMesh.relemCount = static_cast<uint32_t>(mesh.primitives.size());
+    result.meshes.push_back(newMesh);
+
+    for (const auto& prim : mesh.primitives)
+    {
+      RenderElement relem;
+      relem.indexCount = static_cast<uint32_t>(model.accessors.at(prim.indices).count);
+      relem.indexOffset =
+        static_cast<uint32_t>(model.accessors.at(prim.indices).byteOffset / sizeof(uint32_t));
+      relem.vertexOffset =
+        static_cast<uint32_t>(model.accessors.at(prim.attributes.at("POSITION")).byteOffset / 32);
+      result.relems.push_back(relem);
+    }
+  }
+
+  return result;
+}
 
 void SceneManager::uploadData(
   std::span<const Vertex> vertices, std::span<const std::uint32_t> indices)
@@ -386,6 +420,40 @@ void SceneManager::uploadData(
   });
 
   transferHelper.uploadBuffer<Vertex>(*oneShotCommands, unifiedVbuf, 0, vertices);
+  transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
+}
+void SceneManager::uploadCompressedData(
+  const uint32_t* index_buffer,
+  size_t index_count,
+  const unsigned char* vertex_buffer,
+  size_t vertex_buffer_size)
+{
+  unifiedVbuf = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = vertex_buffer_size,
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+    .name = "unifiedVbuf",
+  });
+
+  unifiedIbuf = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = index_count * sizeof(uint32_t),
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+    .name = "unifiedIbuf",
+  });
+
+  std::vector<uint32_t> indices(index_count);
+  std::vector<unsigned char> vertices(vertex_buffer_size);
+  for (size_t i = 0; i < index_count; ++i)
+  {
+    indices.at(i) = index_buffer[i];
+  }
+  for (size_t i = 0; i < vertex_buffer_size; ++i)
+  {
+    vertices.at(i) = vertex_buffer[i];
+  }
+
+  transferHelper.uploadBuffer<unsigned char>(*oneShotCommands, unifiedVbuf, 0, vertices);
   transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
 }
 
@@ -412,6 +480,26 @@ void SceneManager::selectScene(std::filesystem::path path)
   meshes = std::move(meshs);
 
   uploadData(verts, inds);
+}
+
+void SceneManager::selectCompressedScene(std::filesystem::path path)
+{
+  auto maybeModel = loadModel(path);
+  if (!maybeModel.has_value())
+    return;
+
+  auto model = std::move(*maybeModel);
+
+  auto [instMats, instMeshes] = processInstances(model);
+  instanceMatrices = std::move(instMats);
+  instanceMeshes = std::move(instMeshes);
+
+  auto [inds, indCnt, vertBuf, vertBufSize, relems, meshs] = processCompressedMeshes(model);
+
+  renderElements = std::move(relems);
+  meshes = std::move(meshs);
+
+  uploadCompressedData(inds, indCnt, vertBuf, vertBufSize);
 }
 
 etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription()
