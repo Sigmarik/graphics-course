@@ -16,20 +16,21 @@ int main(int argc, char* argv[])
   std::filesystem::path modelPath(argv[1]);
   std::cout << "Loading model " << modelPath.string() << std::endl;
 
-  auto maybeModel = Model::fromGltf(modelPath.string());
+  auto maybeModel = load_model(modelPath.string());
   if (!maybeModel.has_value())
   {
     std::cerr << "Failed to load model " << modelPath.string() << std::endl;
     return EXIT_FAILURE;
   }
 
-  Model& model = *maybeModel;
+  auto& model = *maybeModel;
+
+  optimize_model(model);
 
   std::filesystem::path outPath =
-    modelPath.replace_filename(modelPath.filename().stem().string() + "_baked");
+    modelPath.replace_filename(modelPath.filename().stem().string() + "_baked.gltf");
 
-  model.toBin(outPath.replace_extension("bin").string());
-  model.toGltf(outPath.replace_extension("gltf").string());
+  export_model(model, outPath.string());
 
   return EXIT_SUCCESS;
 }
