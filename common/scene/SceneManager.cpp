@@ -377,8 +377,10 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
   result.indexBuffer = reinterpret_cast<const uint32_t*>(&model.buffers[0].data.front());
   result.indexCount = model.bufferViews[0].byteLength / sizeof(uint32_t);
 
-  result.vertexBuffer = &model.buffers[1].data.front() + model.bufferViews[1].byteOffset;
+  result.vertexBuffer = &model.buffers[0].data.front() + model.bufferViews[1].byteOffset;
   result.vertexBufferSize = model.bufferViews[1].byteLength;
+
+  assert(model.bufferViews[1].byteOffset + model.bufferViews[1].byteLength == model.buffers[0].data.size());
 
   for (const auto& mesh : model.meshes)
   {
@@ -514,6 +516,30 @@ etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription
       etna::VertexByteStreamFormatDescription::Attribute{
         .format = vk::Format::eR32G32B32A32Sfloat,
         .offset = sizeof(glm::vec4),
+      },
+    }};
+}
+
+etna::VertexByteStreamFormatDescription SceneManager::getCompressedVertexFormatDescription()
+{
+  return etna::VertexByteStreamFormatDescription{
+    .stride = sizeof(Vertex),
+    .attributes = {
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32B32Sfloat,
+        .offset = 0,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR8G8B8Sint,
+        .offset = 12,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = 16,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR8G8B8Sint,
+        .offset = 24,
       },
     }};
 }

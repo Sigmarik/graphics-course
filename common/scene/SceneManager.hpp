@@ -52,6 +52,7 @@ public:
   vk::Buffer getIndexBuffer() { return unifiedIbuf.get(); }
 
   etna::VertexByteStreamFormatDescription getVertexFormatDescription();
+  etna::VertexByteStreamFormatDescription getCompressedVertexFormatDescription();
 
 private:
   std::optional<tinygltf::Model> loadModel(std::filesystem::path path);
