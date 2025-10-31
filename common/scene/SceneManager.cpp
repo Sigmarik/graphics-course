@@ -380,7 +380,9 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
   result.vertexBuffer = &model.buffers[0].data.front() + model.bufferViews[1].byteOffset;
   result.vertexBufferSize = model.bufferViews[1].byteLength;
 
-  assert(model.bufferViews[1].byteOffset + model.bufferViews[1].byteLength == model.buffers[0].data.size());
+  assert(
+    model.bufferViews[1].byteOffset + model.bufferViews[1].byteLength ==
+    model.buffers[0].data.size());
 
   for (const auto& mesh : model.meshes)
   {
