@@ -73,10 +73,12 @@ static void read_primitive(
 static CompressedVertex compress_vertex(const Vertex& vertex);
 
 template <class T>
-static void append_as_bytes(std::vector<unsigned char>& bytes, const std::vector<T>& data) {
+static void append_as_bytes(std::vector<unsigned char>& bytes, const std::vector<T>& data)
+{
   bytes.reserve(bytes.size() + data.size() * sizeof(T));
 
-  for (const T& item : data) {
+  for (const T& item : data)
+  {
     const unsigned char* rawBytes = reinterpret_cast<const unsigned char*>(&item);
     bytes.insert(bytes.end(), rawBytes, rawBytes + sizeof(T));
   }
