@@ -96,10 +96,10 @@ private:
   ProcessedCompressedMeshes processCompressedMeshes(const tinygltf::Model& model) const;
   void uploadData(std::span<const Vertex> vertices, std::span<const std::uint32_t>);
   void uploadCompressedData(
-    const uint32_t* indexBuffer,
-    size_t indexCount,
-    const unsigned char* vertexBuffer,
-    size_t vertexBufferSize);
+    const uint32_t* index_buffer,
+    size_t index_count,
+    const unsigned char* vertex_buffer,
+    size_t vertex_buffer_size);
 
 private:
   tinygltf::TinyGLTF loader;
