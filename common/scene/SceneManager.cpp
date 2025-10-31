@@ -371,7 +371,7 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
   const tinygltf::Model& model) const
 {
   assert(model.buffers.size() == 1);
-  assert(model.viewports.size() == 2);
+  assert(model.bufferViews.size() == 2);
 
   ProcessedCompressedMeshes result;
   result.indexBuffer = reinterpret_cast<const uint32_t*>(&model.buffers[0].data.front());
