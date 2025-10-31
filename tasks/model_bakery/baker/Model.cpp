@@ -112,7 +112,11 @@ void optimize_model(tinygltf::Model& model)
       indexAccessor.componentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT;
       indexAccessor.type = TINYGLTF_TYPE_SCALAR;
       indexAccessor.minValues.emplace_back(0);
-      unsigned maxIndex = *std::ranges::max_element(indices);
+      uint32_t maxIndex = 0;
+      for (uint32_t idx : indices)
+      {
+        maxIndex = std::max(idx, maxIndex);
+      }
       indexAccessor.maxValues.emplace_back(maxIndex);
 
       prim.attributes["POSITION"] = static_cast<int>(globalAccessors.size());
