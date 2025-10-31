@@ -21,7 +21,7 @@ jobs:
       with:
         clang-format-version: '17'
         fallback-style: 'none'
-        exclude-regex: '.*include.*'
+        exclude-regex: 'include'
 
     - uses: ZedThree/clang-tidy-review@v0.21.0
       id: review
