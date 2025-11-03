@@ -188,10 +188,11 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
 
   for (const auto& mesh : model.meshes)
   {
-    result.meshes.push_back(Mesh{
+    Mesh newMesh{
       .firstRelem = static_cast<std::uint32_t>(result.relems.size()),
-      .relemCount = static_cast<std::uint32_t>(mesh.primitives.size()),
-    });
+      .relemCount = static_cast<std::uint32_t>(mesh.primitives.size())};
+
+    bool bbInitialized = false;
 
     for (const auto& prim : mesh.primitives)
     {
@@ -238,7 +239,22 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         .vertexOffset = static_cast<std::uint32_t>(result.vertices.size()),
         .indexOffset = static_cast<std::uint32_t>(result.indices.size()),
         .indexCount = static_cast<std::uint32_t>(accessors[0]->count),
+        .bbMin = glm::vec3(
+          accessors[1]->minValues[0], accessors[1]->minValues[1], accessors[1]->minValues[2]),
+        .bbMax = glm::vec3(
+          accessors[1]->maxValues[0], accessors[1]->maxValues[1], accessors[1]->maxValues[2]),
       });
+
+      if (bbInitialized)
+      {
+        newMesh.bbMin = glm::min(result.relems.back().bbMin, newMesh.bbMin);
+        newMesh.bbMax = glm::max(result.relems.back().bbMax, newMesh.bbMax);
+      }
+      else
+      {
+        newMesh.bbMin = result.relems.back().bbMin;
+        newMesh.bbMax = result.relems.back().bbMax;
+      }
 
       const std::size_t vertexCount = accessors[1]->count;
 
@@ -363,6 +379,8 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
           sizeof(result.indices[0]) * indexCount);
       }
     }
+
+    result.meshes.emplace_back(std::move(newMesh));
   }
 
   return result;
@@ -389,7 +407,8 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
     Mesh newMesh;
     newMesh.firstRelem = static_cast<uint32_t>(result.relems.size());
     newMesh.relemCount = static_cast<uint32_t>(mesh.primitives.size());
-    result.meshes.push_back(newMesh);
+
+    bool bbInitialized = false;
 
     for (const auto& prim : mesh.primitives)
     {
@@ -399,8 +418,27 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
         static_cast<uint32_t>(model.accessors.at(prim.indices).byteOffset / sizeof(uint32_t));
       relem.vertexOffset =
         static_cast<uint32_t>(model.accessors.at(prim.attributes.at("POSITION")).byteOffset / 32);
-      result.relems.push_back(relem);
+      const auto& posAccessor = model.accessors.at(prim.attributes.at("POSITION"));
+      relem.bbMin.x = static_cast<float>(posAccessor.minValues[0]);
+      relem.bbMin.y = static_cast<float>(posAccessor.minValues[1]);
+      relem.bbMin.z = static_cast<float>(posAccessor.minValues[2]);
+      relem.bbMax.x = static_cast<float>(posAccessor.maxValues[0]);
+      relem.bbMax.y = static_cast<float>(posAccessor.maxValues[1]);
+      relem.bbMax.z = static_cast<float>(posAccessor.maxValues[2]);
+      if (!bbInitialized)
+      {
+        newMesh.bbMin = relem.bbMin;
+        newMesh.bbMax = relem.bbMax;
+      }
+      else
+      {
+        newMesh.bbMin = glm::min(newMesh.bbMin, relem.bbMin);
+        newMesh.bbMax = glm::max(newMesh.bbMax, relem.bbMax);
+      }
+      result.relems.emplace_back(std::move(relem));
     }
+
+    result.meshes.emplace_back(std::move(newMesh));
   }
 
   return result;

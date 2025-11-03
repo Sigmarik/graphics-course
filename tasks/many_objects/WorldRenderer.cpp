@@ -1,5 +1,7 @@
 #include "WorldRenderer.hpp"
 
+#include "BoundingBox.hpp"
+
 #include <etna/GlobalContext.hpp>
 #include <etna/PipelineManager.hpp>
 #include <etna/RenderTargetStates.hpp>
@@ -107,10 +109,17 @@ void WorldRenderer::renderWorld(
   for (const auto& [meshIdx, instances] : meshInstancingMap)
   {
     std::vector<glm::mat4> instanceMatrices;
+    // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a great solution even if CPU-GPU use explodes.
+
+    // const auto& mesh = sceneMgr->getMeshes()[meshIdx];
+    // BoundingBox boundingBox(mesh.bbMin, mesh.bbMax);
     for (size_t instanceIdx = 0; instanceIdx < instances.size(); ++instanceIdx)
     {
       auto matrixIdx = instances[instanceIdx];
-      instanceMatrices.emplace_back(sceneMgr->getInstanceMatrices()[matrixIdx]);
+      const auto& instanceMatrix = sceneMgr->getInstanceMatrices()[matrixIdx];
+      // if (!boundingBox.transform(worldViewProj * instanceMatrix).shouldRender())
+      //   continue;
+      instanceMatrices.emplace_back(instanceMatrix);
     }
 
     std::memcpy(

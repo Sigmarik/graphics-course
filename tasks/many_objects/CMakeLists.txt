@@ -4,6 +4,7 @@ add_executable(many_objects
         App.cpp
         Renderer.cpp
         WorldRenderer.cpp
+        BoundingBox.cpp
 )
 
 target_link_libraries(many_objects

@@ -16,6 +16,9 @@ struct RenderElement
   std::uint32_t vertexOffset;
   std::uint32_t indexOffset;
   std::uint32_t indexCount;
+
+  glm::vec3 bbMin;
+  glm::vec3 bbMax;
   // Not implemented!
   // Material* material;
 };
@@ -27,6 +30,9 @@ struct Mesh
 {
   std::uint32_t firstRelem;
   std::uint32_t relemCount;
+
+  glm::vec3 bbMin{};
+  glm::vec3 bbMax{};
 };
 
 class SceneManager
