@@ -35,7 +35,7 @@ private:
   etna::Image mainViewDepth;
   etna::Buffer constants;
 
-  static constexpr unsigned INSTANCES_PER_CALL = 512;
+  static constexpr unsigned INSTANCES_PER_CALL = 4096;
 
   struct PushConstants
   {

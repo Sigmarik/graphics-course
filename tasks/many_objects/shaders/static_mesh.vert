@@ -16,9 +16,9 @@ layout(push_constant) uniform params_t
   mat4 mModel;
 } params;
 
-layout(set = 0, binding = 0) uniform Matrices
+layout(std140, set = 0, binding = 0) readonly buffer Matrices
 {
-  mat4 instanceMatrices[512];
+  mat4 instanceMatrices[];
 };
 
 
