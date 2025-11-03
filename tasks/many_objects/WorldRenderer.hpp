@@ -30,21 +30,20 @@ public:
     vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
 
 private:
-  void renderScene(
-    vk::CommandBuffer cmd_buf, const glm::mat4x4& glob_tm, vk::PipelineLayout pipeline_layout);
-
-
-private:
   std::unique_ptr<SceneManager> sceneMgr;
 
   etna::Image mainViewDepth;
   etna::Buffer constants;
+
+  static constexpr unsigned INSTANCES_PER_CALL = 512;
 
   struct PushConstants
   {
     glm::mat4x4 projView;
     glm::mat4x4 model;
   } pushConst2M;
+
+  std::map<unsigned int, std::vector<size_t>> meshInstancingMap{};
 
   glm::mat4x4 worldViewProj;
   glm::mat4x4 lightMatrix;

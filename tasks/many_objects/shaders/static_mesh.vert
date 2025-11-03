@@ -16,6 +16,11 @@ layout(push_constant) uniform params_t
   mat4 mModel;
 } params;
 
+layout(set = 0, binding = 0) uniform Matrices
+{
+  mat4 instanceMatrices[512];
+};
+
 
 layout (location = 0 ) out VS_OUT
 {
@@ -33,9 +38,10 @@ void main(void)
   const vec4 wNorm = vec4(vNorm, 0.0f);
   const vec4 wTang = vec4(vTangent, 0.0f);
 
-  vOut.wPos   = (params.mModel * vec4(vPos, 1.0f)).xyz;
-  vOut.wNorm  = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
-  vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
+  mat4 model = instanceMatrices[gl_InstanceIndex];
+  vOut.wPos   = (model * vec4(vPos, 1.0f)).xyz;
+  vOut.wNorm  = normalize(mat3(transpose(inverse(model))) * wNorm.xyz);
+  vOut.wTangent = normalize(mat3(transpose(inverse(model))) * wTang.xyz);
   vOut.texCoord = vUv;
 
   gl_Position   = params.mProjView * vec4(vOut.wPos, 1.0);
