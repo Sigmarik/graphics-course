@@ -109,7 +109,8 @@ void WorldRenderer::renderWorld(
   for (const auto& [meshIdx, instances] : meshInstancingMap)
   {
     std::vector<glm::mat4> instanceMatrices;
-    // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a great solution even if CPU-GPU use explodes.
+    // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a great
+    // solution even if CPU-GPU use explodes.
 
     // const auto& mesh = sceneMgr->getMeshes()[meshIdx];
     // BoundingBox boundingBox(mesh.bbMin, mesh.bbMax);
