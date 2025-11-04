@@ -42,13 +42,6 @@ BoundingBox BoundingBox::transform(const glm::mat4& matrix) const
 
 bool BoundingBox::shouldRender() const
 {
-  if (min.x > 1.0 || min.y > 1.0 || min.z > 1.0)
-  {
-    return false;
-  }
-  if (max.x < -1.0 || max.y < -1.0 || max.z < -1.0)
-  {
-    return false;
-  }
-  return true;
+  return min.x <= 1.0 && min.y <= 1.0 && min.z <= 1.0 && max.x >= -1.0 && max.y >= -1.0 &&
+    max.z >= -1.0;
 }
