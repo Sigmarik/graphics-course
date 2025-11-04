@@ -33,9 +33,6 @@ private:
   std::unique_ptr<SceneManager> sceneMgr;
 
   etna::Image mainViewDepth;
-  etna::Buffer constants;
-
-  static constexpr unsigned INSTANCES_PER_CALL = 4096;
 
   struct PushConstants
   {
@@ -43,7 +40,13 @@ private:
     glm::mat4x4 model;
   } pushConst2M;
 
-  std::map<unsigned int, std::vector<size_t>> meshInstancingMap{};
+  struct InstanceArray
+  {
+    etna::Buffer matrices;
+    std::vector<size_t> matrixIndices{};
+  };
+
+  std::vector<InstanceArray> meshInstancingMap{};
 
   glm::mat4x4 worldViewProj;
   glm::mat4x4 lightMatrix;

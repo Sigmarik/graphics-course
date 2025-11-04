@@ -26,14 +26,6 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
     .format = vk::Format::eD32Sfloat,
     .imageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
   });
-
-  constants = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
-    .size = sizeof(glm::mat4) * INSTANCES_PER_CALL,
-    .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
-    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
-    .name = "constants0",
-  });
-  constants.map();
 }
 
 void WorldRenderer::loadScene(std::filesystem::path path)
@@ -41,11 +33,34 @@ void WorldRenderer::loadScene(std::filesystem::path path)
   // sceneMgr->selectScene(path);
   sceneMgr->selectCompressedScene(path);
 
+  std::map<unsigned int, std::vector<std::size_t>> instanceMap{};
   for (size_t instanceIdx = 0; instanceIdx < sceneMgr->getInstanceMatrices().size(); instanceIdx++)
   {
     auto meshIdx = sceneMgr->getInstanceMeshes()[instanceIdx];
-    meshInstancingMap.try_emplace(meshIdx);
-    meshInstancingMap[meshIdx].emplace_back(instanceIdx);
+    instanceMap.try_emplace(meshIdx);
+    instanceMap[meshIdx].emplace_back(instanceIdx);
+  }
+
+  for (unsigned meshId = 0; meshId < sceneMgr->getMeshes().size(); meshId++)
+  {
+    if (!instanceMap.contains(meshId))
+    {
+      meshInstancingMap.emplace_back();
+      continue;
+    }
+
+    auto& matrixIndices = instanceMap[meshId];
+
+    InstanceArray instanceArray{};
+    instanceArray.matrices = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+      .size = matrixIndices.size() * sizeof(glm::mat4),
+      .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
+      .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+      .name = std::string("instanceMatrices_") + std::to_string(meshId),
+    });
+    instanceArray.matrices.map();
+    instanceArray.matrixIndices = std::move(matrixIndices);
+    meshInstancingMap.emplace_back(std::move(instanceArray));
   }
 }
 
@@ -106,8 +121,14 @@ void WorldRenderer::renderWorld(
 {
   ETNA_PROFILE_GPU(cmd_buf, renderWorld);
 
-  for (const auto& [meshIdx, instances] : meshInstancingMap)
+  for (unsigned meshIdx = 0; meshIdx < meshInstancingMap.size(); ++meshIdx)
   {
+    auto& instanceArray = meshInstancingMap[meshIdx];
+    const auto& instances = instanceArray.matrixIndices;
+
+    if (instances.empty())
+      continue;
+
     std::vector<glm::mat4> instanceMatrices;
     // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a great
     // solution even if CPU-GPU use explodes.
@@ -124,7 +145,9 @@ void WorldRenderer::renderWorld(
     }
 
     std::memcpy(
-      constants.data(), instanceMatrices.data(), sizeof(glm::mat4) * instanceMatrices.size());
+      instanceArray.matrices.data(),
+      instanceMatrices.data(),
+      sizeof(glm::mat4) * instanceMatrices.size());
 
     {
       ETNA_PROFILE_GPU(cmd_buf, renderForward);
@@ -139,7 +162,7 @@ void WorldRenderer::renderWorld(
       auto set = etna::create_descriptor_set(
         intermediateInfo.getDescriptorLayoutId(0),
         cmd_buf,
-        {etna::Binding{0, constants.genBinding()}});
+        {etna::Binding{0, instanceArray.matrices.genBinding()}});
 
       vk::DescriptorSet vkSet = set.getVkSet();
 
