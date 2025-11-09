@@ -34,6 +34,8 @@ private:
 
   etna::Image mainViewDepth;
 
+  etna::Buffer matrixBuffer;
+
   struct PushConstants
   {
     glm::mat4x4 projView;
@@ -42,7 +44,7 @@ private:
 
   struct InstanceArray
   {
-    etna::Buffer matrices;
+    uint32_t matrixArrayOffset = 0;
     std::vector<size_t> matrixIndices{};
   };
 

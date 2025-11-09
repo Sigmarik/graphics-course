@@ -41,6 +41,7 @@ void WorldRenderer::loadScene(std::filesystem::path path)
     instanceMap[meshIdx].emplace_back(instanceIdx);
   }
 
+  uint32_t shift = 0;
   for (unsigned meshId = 0; meshId < sceneMgr->getMeshes().size(); meshId++)
   {
     if (!instanceMap.contains(meshId))
@@ -52,16 +53,19 @@ void WorldRenderer::loadScene(std::filesystem::path path)
     auto& matrixIndices = instanceMap[meshId];
 
     InstanceArray instanceArray{};
-    instanceArray.matrices = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
-      .size = matrixIndices.size() * sizeof(glm::mat4),
-      .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
-      .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
-      .name = std::string("instanceMatrices_") + std::to_string(meshId),
-    });
-    instanceArray.matrices.map();
+    instanceArray.matrixArrayOffset = shift;
+    shift += static_cast<uint32_t>(matrixIndices.size());
     instanceArray.matrixIndices = std::move(matrixIndices);
     meshInstancingMap.emplace_back(std::move(instanceArray));
   }
+
+  matrixBuffer = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = shift * sizeof(glm::mat4),
+    .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+    .name = "instanceMatrices",
+  });
+  matrixBuffer.map();
 }
 
 void WorldRenderer::loadShaders()
@@ -154,7 +158,7 @@ void WorldRenderer::renderWorld(
       }
 
       std::memcpy(
-        instanceArray.matrices.data(),
+        matrixBuffer.data() + instanceArray.matrixArrayOffset * sizeof(glm::mat4),
         instanceMatrices.data(),
         sizeof(glm::mat4) * instanceMatrices.size());
 
@@ -162,7 +166,7 @@ void WorldRenderer::renderWorld(
       auto set = etna::create_descriptor_set(
         intermediateInfo.getDescriptorLayoutId(0),
         cmd_buf,
-        {etna::Binding{0, instanceArray.matrices.genBinding()}});
+        {etna::Binding{0, matrixBuffer.genBinding()}});
 
       vk::DescriptorSet vkSet = set.getVkSet();
 
@@ -197,7 +201,7 @@ void WorldRenderer::renderWorld(
           static_cast<uint32_t>(instanceMatrices.size()),
           relem.indexOffset,
           relem.vertexOffset,
-          0);
+          instanceArray.matrixArrayOffset);
       }
     }
   }
