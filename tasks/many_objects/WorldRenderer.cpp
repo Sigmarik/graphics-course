@@ -121,42 +121,42 @@ void WorldRenderer::renderWorld(
 {
   ETNA_PROFILE_GPU(cmd_buf, renderWorld);
 
-  for (unsigned meshIdx = 0; meshIdx < meshInstancingMap.size(); ++meshIdx)
   {
-    auto& instanceArray = meshInstancingMap[meshIdx];
-    const auto& instances = instanceArray.matrixIndices;
+    ETNA_PROFILE_GPU(cmd_buf, renderForward);
 
-    if (instances.empty())
-      continue;
+    etna::RenderTargetState renderTargets(
+      cmd_buf,
+      {{0, 0}, {resolution.x, resolution.y}},
+      {{.image = target_image, .view = target_image_view}},
+      {.image = mainViewDepth.get(), .view = mainViewDepth.getView({})});
 
-    std::vector<glm::mat4> instanceMatrices;
-    // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a great
-    // solution even if CPU-GPU use explodes.
-
-    // const auto& mesh = sceneMgr->getMeshes()[meshIdx];
-    // BoundingBox boundingBox(mesh.bbMin, mesh.bbMax);
-    for (size_t instanceIdx = 0; instanceIdx < instances.size(); ++instanceIdx)
+    for (unsigned meshIdx = 0; meshIdx < meshInstancingMap.size(); ++meshIdx)
     {
-      auto matrixIdx = instances[instanceIdx];
-      const auto& instanceMatrix = sceneMgr->getInstanceMatrices()[matrixIdx];
-      // if (!boundingBox.transform(worldViewProj * instanceMatrix).shouldRender())
-      //   continue;
-      instanceMatrices.emplace_back(instanceMatrix);
-    }
+      auto& instanceArray = meshInstancingMap[meshIdx];
+      const auto& instances = instanceArray.matrixIndices;
 
-    std::memcpy(
-      instanceArray.matrices.data(),
-      instanceMatrices.data(),
-      sizeof(glm::mat4) * instanceMatrices.size());
+      if (instances.empty())
+        continue;
 
-    {
-      ETNA_PROFILE_GPU(cmd_buf, renderForward);
+      std::vector<glm::mat4> instanceMatrices;
+      // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a
+      // great solution even if CPU-GPU use explodes.
 
-      etna::RenderTargetState renderTargets(
-        cmd_buf,
-        {{0, 0}, {resolution.x, resolution.y}},
-        {{.image = target_image, .view = target_image_view}},
-        {.image = mainViewDepth.get(), .view = mainViewDepth.getView({})});
+      // const auto& mesh = sceneMgr->getMeshes()[meshIdx];
+      // BoundingBox boundingBox(mesh.bbMin, mesh.bbMax);
+      for (size_t instanceIdx = 0; instanceIdx < instances.size(); ++instanceIdx)
+      {
+        auto matrixIdx = instances[instanceIdx];
+        const auto& instanceMatrix = sceneMgr->getInstanceMatrices()[matrixIdx];
+        // if (!boundingBox.transform(worldViewProj * instanceMatrix).shouldRender())
+        //   continue;
+        instanceMatrices.emplace_back(instanceMatrix);
+      }
+
+      std::memcpy(
+        instanceArray.matrices.data(),
+        instanceMatrices.data(),
+        sizeof(glm::mat4) * instanceMatrices.size());
 
       auto intermediateInfo = etna::get_shader_program("static_mesh_material");
       auto set = etna::create_descriptor_set(
@@ -200,7 +200,7 @@ void WorldRenderer::renderWorld(
           0);
       }
     }
-
-    etna::flush_barriers(cmd_buf);
   }
+
+  etna::flush_barriers(cmd_buf);
 }
