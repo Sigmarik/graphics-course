@@ -61,11 +61,6 @@ void Renderer::initFrameDelivery(vk::UniqueSurfaceKHR a_surface, ResolutionProvi
   worldRenderer->setupPipelines(window->getCurrentFormat());
 }
 
-void Renderer::loadScene(std::filesystem::path path)
-{
-  worldRenderer->loadScene(path);
-}
-
 void Renderer::debugInput(const Keyboard& kb)
 {
   worldRenderer->debugInput(kb);

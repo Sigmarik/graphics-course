@@ -49,7 +49,7 @@ private:
   glm::mat4x4 worldViewProj;
   glm::mat4x4 lightMatrix;
 
-  etna::GraphicsPipeline staticMeshPipeline{};
+  etna::GraphicsPipeline terrainPipeline{};
 
   glm::uvec2 resolution;
 };

@@ -11,13 +11,13 @@
 
 #include "FramePacket.hpp"
 
+#include <set>
+
 
 class WorldRenderer
 {
 public:
   WorldRenderer();
-
-  void loadScene(std::filesystem::path path);
 
   void loadShaders();
   void allocateResources(glm::uvec2 swapchain_resolution);
@@ -30,30 +30,65 @@ public:
     vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
 
 private:
-  std::unique_ptr<SceneManager> sceneMgr;
-
   etna::Image mainViewDepth;
 
-  etna::Buffer matrixBuffer;
+  static constexpr unsigned CHUNK_RESOLUTION = 17;
+
+  struct ChunkVertex
+  {
+    glm::ivec2 position{};
+  };
+
+  struct TerrainVertex
+  {
+    float elevation = 0.0;
+    float _padding = 0;
+    glm::vec2 normal{};
+  };
+
+  TerrainVertex terrainAtPosition(const glm::vec2& pos) const;
+
+  etna::Buffer chunkElevationBuffer{};
+  etna::Buffer chunkMap{};
+
+  etna::Buffer chunkMeshVertices{};
+  etna::Buffer chunkMeshIndices{};
+
+  void generateChunkMesh();
+
+  struct BindingManager
+  {
+    std::map<uint64_t, uint32_t> bindings{};
+    std::set<uint32_t> freeBindings{};
+
+    uint32_t getBinding(glm::ivec2 position);
+    void freeBinding(glm::vec2 position);
+  };
+
+  struct Chunk
+  {
+    glm::vec2 position{};
+    float size = 16.0;
+    uint32_t offset = 0;
+  };
+
+  void blitChunk(Chunk& chunk);
+  std::vector<Chunk> generateChunkMap(const glm::vec2& camera_pos) const;
+
+  uint32_t mapChunks(const glm::vec2& camera_pos);
 
   struct PushConstants
   {
     glm::mat4x4 projView;
     glm::mat4x4 model;
-  } pushConst2M;
+  } pushConst2M{};
 
-  struct InstanceArray
-  {
-    uint32_t matrixArrayOffset = 0;
-    std::vector<size_t> matrixIndices{};
-  };
+  glm::mat4x4 worldViewProj{};
+  glm::mat4x4 lightMatrix{};
 
-  std::vector<InstanceArray> meshInstancingMap{};
+  glm::vec3 cameraPos{};
 
-  glm::mat4x4 worldViewProj;
-  glm::mat4x4 lightMatrix;
+  etna::GraphicsPipeline terrainPipeline{};
 
-  etna::GraphicsPipeline staticMeshPipeline{};
-
-  glm::uvec2 resolution;
+  glm::uvec2 resolution{};
 };

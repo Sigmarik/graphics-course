@@ -9,10 +9,7 @@
 #include <glm/ext.hpp>
 
 
-WorldRenderer::WorldRenderer()
-  : sceneMgr{std::make_unique<SceneManager>()}
-{
-}
+WorldRenderer::WorldRenderer() {}
 
 void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
 {
@@ -26,69 +23,72 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
     .format = vk::Format::eD32Sfloat,
     .imageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
   });
-}
 
-void WorldRenderer::loadScene(std::filesystem::path path)
-{
-  // sceneMgr->selectScene(path);
-  sceneMgr->selectCompressedScene(path);
+  auto chunks = generateChunkMap(glm::vec2(0.0));
 
-  std::map<unsigned int, std::vector<std::size_t>> instanceMap{};
-  for (size_t instanceIdx = 0; instanceIdx < sceneMgr->getInstanceMatrices().size(); instanceIdx++)
-  {
-    auto meshIdx = sceneMgr->getInstanceMeshes()[instanceIdx];
-    instanceMap.try_emplace(meshIdx);
-    instanceMap[meshIdx].emplace_back(instanceIdx);
-  }
-
-  uint32_t shift = 0;
-  for (unsigned meshId = 0; meshId < sceneMgr->getMeshes().size(); meshId++)
-  {
-    if (!instanceMap.contains(meshId))
-    {
-      meshInstancingMap.emplace_back();
-      continue;
-    }
-
-    auto& matrixIndices = instanceMap[meshId];
-
-    InstanceArray instanceArray{};
-    instanceArray.matrixArrayOffset = shift;
-    shift += static_cast<uint32_t>(matrixIndices.size());
-    instanceArray.matrixIndices = std::move(matrixIndices);
-    meshInstancingMap.emplace_back(std::move(instanceArray));
-  }
-
-  matrixBuffer = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
-    .size = shift * sizeof(glm::mat4),
+  chunkElevationBuffer = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = chunks.size() * sizeof(TerrainVertex) * CHUNK_RESOLUTION * CHUNK_RESOLUTION,
     .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
     .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
-    .name = "instanceMatrices",
+    .name = "elevation",
   });
-  matrixBuffer.map();
+  chunkElevationBuffer.map();
+
+  chunkMap = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = chunks.size() * sizeof(Chunk),
+    .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+    .name = "chunkMap",
+  });
+  chunkMap.map();
+
+  chunkMeshIndices = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = sizeof(uint32_t) * (CHUNK_RESOLUTION - 1) * (CHUNK_RESOLUTION - 1) * 2 * 3,
+    .bufferUsage = vk::BufferUsageFlagBits::eIndexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+    .name = "terrainChunkIndices",
+  });
+  chunkMeshIndices.map();
+
+  chunkMeshVertices = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = sizeof(ChunkVertex) * CHUNK_RESOLUTION * CHUNK_RESOLUTION,
+    .bufferUsage = vk::BufferUsageFlagBits::eVertexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+    .name = "terrainChunkVertices",
+  });
+  chunkMeshVertices.map();
+
+  generateChunkMesh();
 }
 
 void WorldRenderer::loadShaders()
 {
   etna::create_program(
     "static_mesh_material",
-    {TERRAIN_SHADERS_ROOT "static_mesh.frag.spv",
-     TERRAIN_SHADERS_ROOT "static_mesh.vert.spv"});
+    {TERRAIN_SHADERS_ROOT "static_mesh.frag.spv", TERRAIN_SHADERS_ROOT "static_mesh.vert.spv"});
   etna::create_program("static_mesh", {TERRAIN_SHADERS_ROOT "static_mesh.vert.spv"});
 }
 
 void WorldRenderer::setupPipelines(vk::Format swapchain_format)
 {
+  auto format = etna::VertexByteStreamFormatDescription{
+    .stride = sizeof(ChunkVertex),
+    .attributes = {
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32Sint,
+        .offset = 0,
+      },
+    }};
   etna::VertexShaderInputDescription sceneVertexInputDesc{
     .bindings = {etna::VertexShaderInputDescription::Binding{
-      .byteStreamDescription = sceneMgr->getCompressedVertexFormatDescription(),
+      .byteStreamDescription = format,
     }},
   };
 
   auto& pipelineManager = etna::get_context().getPipelineManager();
 
-  staticMeshPipeline = {};
-  staticMeshPipeline = pipelineManager.createGraphicsPipeline(
+  terrainPipeline = {};
+  terrainPipeline = pipelineManager.createGraphicsPipeline(
     "static_mesh_material",
     etna::GraphicsPipeline::CreateInfo{
       .vertexShaderInput = sceneVertexInputDesc,
@@ -117,6 +117,7 @@ void WorldRenderer::update(const FramePacket& packet)
   {
     const float aspect = float(resolution.x) / float(resolution.y);
     worldViewProj = packet.mainCam.projTm(aspect) * packet.mainCam.viewTm();
+    cameraPos = packet.mainCam.position;
   }
 }
 
@@ -134,77 +135,145 @@ void WorldRenderer::renderWorld(
       {{.image = target_image, .view = target_image_view}},
       {.image = mainViewDepth.get(), .view = mainViewDepth.getView({})});
 
-    for (unsigned meshIdx = 0; meshIdx < meshInstancingMap.size(); ++meshIdx)
-    {
-      auto& instanceArray = meshInstancingMap[meshIdx];
-      const auto& instances = instanceArray.matrixIndices;
+    uint32_t chunkCount = mapChunks(glm::vec2(cameraPos.z, cameraPos.x));
 
-      if (instances.empty())
-        continue;
-
-      std::vector<glm::mat4> instanceMatrices;
-      // TODO: CPU culling is slow as f*ck... Outsourcing some of the work to the GPU might be a
-      // great solution even if CPU-GPU use explodes.
-
-      // const auto& mesh = sceneMgr->getMeshes()[meshIdx];
-      // BoundingBox boundingBox(mesh.bbMin, mesh.bbMax);
-      for (size_t instanceIdx = 0; instanceIdx < instances.size(); ++instanceIdx)
+    auto intermediateInfo = etna::get_shader_program("static_mesh_material");
+    auto set = etna::create_descriptor_set(
+      intermediateInfo.getDescriptorLayoutId(0),
+      cmd_buf,
       {
-        auto matrixIdx = instances[instanceIdx];
-        const auto& instanceMatrix = sceneMgr->getInstanceMatrices()[matrixIdx];
-        // if (!boundingBox.transform(worldViewProj * instanceMatrix).shouldRender())
-        //   continue;
-        instanceMatrices.emplace_back(instanceMatrix);
-      }
+        etna::Binding{0, chunkElevationBuffer.genBinding()},
+        etna::Binding{1, chunkMap.genBinding()},
+      });
 
-      std::memcpy(
-        matrixBuffer.data() + instanceArray.matrixArrayOffset * sizeof(glm::mat4),
-        instanceMatrices.data(),
-        sizeof(glm::mat4) * instanceMatrices.size());
+    vk::DescriptorSet vkSet = set.getVkSet();
 
-      auto intermediateInfo = etna::get_shader_program("static_mesh_material");
-      auto set = etna::create_descriptor_set(
-        intermediateInfo.getDescriptorLayoutId(0),
-        cmd_buf,
-        {etna::Binding{0, matrixBuffer.genBinding()}});
+    cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, terrainPipeline.getVkPipeline());
 
-      vk::DescriptorSet vkSet = set.getVkSet();
+    cmd_buf.bindDescriptorSets(
+      vk::PipelineBindPoint::eGraphics,
+      terrainPipeline.getVkPipelineLayout(),
+      0,
+      1,
+      &vkSet,
+      0,
+      nullptr);
 
-      cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, staticMeshPipeline.getVkPipeline());
+    cmd_buf.bindVertexBuffers(0, {chunkMeshVertices.get()}, {0});
+    cmd_buf.bindIndexBuffer(chunkMeshIndices.get(), 0, vk::IndexType::eUint32);
 
-      cmd_buf.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics,
-        staticMeshPipeline.getVkPipelineLayout(),
-        0,
-        1,
-        &vkSet,
-        0,
-        nullptr);
+    pushConst2M.projView = worldViewProj;
 
-      cmd_buf.bindVertexBuffers(0, {sceneMgr->getVertexBuffer()}, {0});
-      cmd_buf.bindIndexBuffer(sceneMgr->getIndexBuffer(), 0, vk::IndexType::eUint32);
+    cmd_buf.pushConstants<PushConstants>(
+      terrainPipeline.getVkPipelineLayout(), vk::ShaderStageFlagBits::eVertex, 0, {pushConst2M});
 
-      pushConst2M.projView = worldViewProj;
-
-      cmd_buf.pushConstants<PushConstants>(
-        staticMeshPipeline.getVkPipelineLayout(),
-        vk::ShaderStageFlagBits::eVertex,
-        0,
-        {pushConst2M});
-
-      for (std::size_t j = 0; j < sceneMgr->getMeshes()[meshIdx].relemCount; ++j)
-      {
-        const auto relemIdx = sceneMgr->getMeshes()[meshIdx].firstRelem + j;
-        const auto& relem = sceneMgr->getRenderElements()[relemIdx];
-        cmd_buf.drawIndexed(
-          relem.indexCount,
-          static_cast<uint32_t>(instanceMatrices.size()),
-          relem.indexOffset,
-          relem.vertexOffset,
-          instanceArray.matrixArrayOffset);
-      }
-    }
+    cmd_buf.drawIndexed(
+      (CHUNK_RESOLUTION - 1) * (CHUNK_RESOLUTION - 1) * 2 * 3, chunkCount, 0, 0, 0);
   }
 
   etna::flush_barriers(cmd_buf);
+}
+
+static float elevationAt(const glm::vec2& pos)
+{
+  return pos.x;
+}
+
+WorldRenderer::TerrainVertex WorldRenderer::terrainAtPosition(const glm::vec2& pos) const
+{
+  // TODO: Implement something more interesting
+  TerrainVertex vtx;
+  vtx.elevation = elevationAt(pos);
+  constexpr float EPS = 0.01f;
+  vtx.normal.x = (elevationAt(pos + glm::vec2(EPS, 0.0)) - vtx.elevation) / EPS;
+  vtx.normal.y = (elevationAt(pos + glm::vec2(0.0, EPS)) - vtx.elevation) / EPS;
+  return vtx;
+}
+
+void WorldRenderer::generateChunkMesh()
+{
+  std::vector<ChunkVertex> vertices;
+  std::vector<uint32_t> indices;
+
+  for (unsigned dx = 0; dx < CHUNK_RESOLUTION; dx++)
+  {
+    for (unsigned dy = 0; dy < CHUNK_RESOLUTION; dy++)
+    {
+      ChunkVertex vtx;
+      vtx.position = glm::ivec2(dx, dy);
+      vertices.emplace_back(vtx);
+    }
+  }
+
+  for (unsigned dx = 0; dx + 1 < CHUNK_RESOLUTION; dx++)
+  {
+    for (unsigned dy = 0; dy + 1 < CHUNK_RESOLUTION; dy++)
+    {
+      uint32_t base = dx * CHUNK_RESOLUTION + dy;
+
+      //  *--*
+      //  | /
+      //  |/
+      //  *
+      indices.emplace_back(base);
+      indices.emplace_back(base + CHUNK_RESOLUTION);
+      indices.emplace_back(base + 1);
+
+      //     *
+      //    /|
+      //   / |
+      //  *--*
+      indices.emplace_back(base + 1);
+      indices.emplace_back(base + CHUNK_RESOLUTION);
+      indices.emplace_back(base + CHUNK_RESOLUTION + 1);
+    }
+  }
+
+  std::memcpy(chunkMeshVertices.data(), vertices.data(), sizeof(ChunkVertex) * vertices.size());
+  std::memcpy(chunkMeshIndices.data(), indices.data(), sizeof(uint32_t) * indices.size());
+}
+
+void WorldRenderer::blitChunk(Chunk& chunk)
+{
+  std::vector<TerrainVertex> vertices;
+  // vertices.reserve(CHUNK_RESOLUTION * CHUNK_RESOLUTION);
+  for (unsigned dx = 0; dx < CHUNK_RESOLUTION; ++dx)
+  {
+    for (unsigned dy = 0; dy < CHUNK_RESOLUTION; ++dy)
+    {
+      glm::vec2 pos = chunk.position;
+      pos.x += static_cast<float>(dx) / CHUNK_RESOLUTION * chunk.size;
+      pos.y += static_cast<float>(dy) / CHUNK_RESOLUTION * chunk.size;
+      vertices.emplace_back(terrainAtPosition(pos));
+    }
+  }
+  std::memcpy(
+    chunkElevationBuffer.data() + chunk.offset,
+    vertices.data(),
+    sizeof(TerrainVertex) * vertices.size());
+}
+
+std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec2&) const
+{
+  std::vector<Chunk> chunks;
+
+  // Only a single debug "chunk"
+  Chunk chunk;
+  chunk.position = glm::vec2(0.0, 0.0);
+  chunk.offset = 0;
+  chunk.size = 16.0f;
+  chunks.push_back(chunk);
+
+  return chunks;
+}
+
+uint32_t WorldRenderer::mapChunks(const glm::vec2& camera_pos)
+{
+  auto chunks = generateChunkMap(camera_pos);
+  for (auto& chunk : chunks)
+  {
+    blitChunk(chunk);
+  }
+  std::memcpy(chunkMap.data(), chunks.data(), sizeof(Chunk) * chunks.size());
+  return static_cast<uint32_t>(chunks.size());
 }

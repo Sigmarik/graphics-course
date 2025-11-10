@@ -51,8 +51,8 @@ void WorldRenderer::setupPipelines(vk::Format swapchain_format)
 
   auto& pipelineManager = etna::get_context().getPipelineManager();
 
-  staticMeshPipeline = {};
-  staticMeshPipeline = pipelineManager.createGraphicsPipeline(
+  terrainPipeline = {};
+  terrainPipeline = pipelineManager.createGraphicsPipeline(
     "static_mesh_material",
     etna::GraphicsPipeline::CreateInfo{
       .vertexShaderInput = sceneVertexInputDesc,
@@ -134,7 +134,7 @@ void WorldRenderer::renderWorld(
       {{.image = target_image, .view = target_image_view}},
       {.image = mainViewDepth.get(), .view = mainViewDepth.getView({})});
 
-    cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, staticMeshPipeline.getVkPipeline());
-    renderScene(cmd_buf, worldViewProj, staticMeshPipeline.getVkPipelineLayout());
+    cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, terrainPipeline.getVkPipeline());
+    renderScene(cmd_buf, worldViewProj, terrainPipeline.getVkPipelineLayout());
   }
 }

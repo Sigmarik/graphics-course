@@ -87,8 +87,8 @@ void WorldRenderer::setupPipelines(vk::Format swapchain_format)
 
   auto& pipelineManager = etna::get_context().getPipelineManager();
 
-  staticMeshPipeline = {};
-  staticMeshPipeline = pipelineManager.createGraphicsPipeline(
+  terrainPipeline = {};
+  terrainPipeline = pipelineManager.createGraphicsPipeline(
     "static_mesh_material",
     etna::GraphicsPipeline::CreateInfo{
       .vertexShaderInput = sceneVertexInputDesc,
@@ -170,11 +170,11 @@ void WorldRenderer::renderWorld(
 
       vk::DescriptorSet vkSet = set.getVkSet();
 
-      cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, staticMeshPipeline.getVkPipeline());
+      cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, terrainPipeline.getVkPipeline());
 
       cmd_buf.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
-        staticMeshPipeline.getVkPipelineLayout(),
+        terrainPipeline.getVkPipelineLayout(),
         0,
         1,
         &vkSet,
@@ -187,7 +187,7 @@ void WorldRenderer::renderWorld(
       pushConst2M.projView = worldViewProj;
 
       cmd_buf.pushConstants<PushConstants>(
-        staticMeshPipeline.getVkPipelineLayout(),
+        terrainPipeline.getVkPipelineLayout(),
         vk::ShaderStageFlagBits::eVertex,
         0,
         {pushConst2M});

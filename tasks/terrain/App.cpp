@@ -20,8 +20,6 @@ App::App()
   renderer->initFrameDelivery(std::move(surface), [this]() { return mainWindow->getResolution(); });
 
   mainCam.lookAt({0, 10, 10}, {0, 0, 0}, {0, 1, 0});
-
-  renderer->loadScene(GRAPHICS_COURSE_RESOURCES_ROOT "/scenes/Avocado/Avocado_baked.gltf");
 }
 
 void App::run()
