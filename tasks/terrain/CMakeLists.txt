@@ -4,7 +4,6 @@ add_executable(terrain
         App.cpp
         Renderer.cpp
         WorldRenderer.cpp
-        BoundingBox.cpp
 )
 
 target_link_libraries(terrain

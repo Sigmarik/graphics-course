@@ -10,6 +10,7 @@
 #include "wsi/Keyboard.hpp"
 
 #include "FramePacket.hpp"
+#include "FrameMachine.hpp"
 
 #include <set>
 
@@ -54,9 +55,6 @@ private:
 
   TerrainVertex terrainAtPosition(const glm::vec2& pos) const;
 
-  etna::Buffer chunkElevationBuffer{};
-  etna::Buffer chunkMap{};
-
   etna::Buffer chunkMeshVertices{};
   etna::Buffer chunkMeshIndices{};
 
@@ -90,7 +88,14 @@ private:
     void genBindings(WorldRenderer& world, std::vector<Chunk>& chunks);
   };
 
-  BindingManager chunkAllocator{};
+  struct TerrainBuffers
+  {
+    etna::Buffer chunkElevation{};
+    etna::Buffer chunkMap{};
+    BindingManager chunkAllocator{};
+  };
+
+  FrameMachine<TerrainBuffers, 2> terrainBuffers;
 
   void blitChunk(Chunk& chunk);
   std::vector<Chunk> generateChunkMap(const glm::vec2& camera_pos) const;

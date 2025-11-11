@@ -1,6 +1,5 @@
 #include "WorldRenderer.hpp"
 
-#include "BoundingBox.hpp"
 #include "noise.h"
 
 #include <etna/GlobalContext.hpp>
@@ -27,21 +26,24 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
 
   auto chunks = generateChunkMap(glm::vec2(0.0));
 
-  chunkElevationBuffer = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
-    .size = chunks.size() * sizeof(TerrainVertex) * CHUNK_RESOLUTION * CHUNK_RESOLUTION,
-    .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
-    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
-    .name = "elevation",
-  });
-  chunkElevationBuffer.map();
+  for (unsigned id = 0; id < 2; ++id)
+  {
+    terrainBuffers[id].chunkElevation = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+      .size = chunks.size() * sizeof(TerrainVertex) * CHUNK_RESOLUTION * CHUNK_RESOLUTION,
+      .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
+      .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+      .name = "elevation" + std::to_string(id),
+    });
+    terrainBuffers[id].chunkElevation.map();
 
-  chunkMap = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
-    .size = chunks.size() * sizeof(Chunk),
-    .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
-    .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
-    .name = "chunkMap",
-  });
-  chunkMap.map();
+    terrainBuffers[id].chunkMap = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+      .size = chunks.size() * sizeof(Chunk),
+      .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
+      .memoryUsage = VMA_MEMORY_USAGE_CPU_ONLY,
+      .name = "chunkMap" + std::to_string(id),
+    });
+    terrainBuffers[id].chunkMap.map();
+  }
 
   chunkMeshIndices = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
     .size = sizeof(uint32_t) * (CHUNK_RESOLUTION - 1) * (CHUNK_RESOLUTION - 1) * 2 * 3,
@@ -143,8 +145,8 @@ void WorldRenderer::renderWorld(
       intermediateInfo.getDescriptorLayoutId(0),
       cmd_buf,
       {
-        etna::Binding{0, chunkElevationBuffer.genBinding()},
-        etna::Binding{1, chunkMap.genBinding()},
+        etna::Binding{0, terrainBuffers.get().chunkElevation.genBinding()},
+        etna::Binding{1, terrainBuffers.get().chunkMap.genBinding()},
       });
 
     vk::DescriptorSet vkSet = set.getVkSet();
@@ -308,7 +310,7 @@ void WorldRenderer::blitChunk(Chunk& chunk)
     }
   }
   std::memcpy(
-    chunkElevationBuffer.data() + chunk.offset * sizeof(TerrainVertex),
+    terrainBuffers.get().chunkElevation.data() + chunk.offset * sizeof(TerrainVertex),
     vertices.data(),
     sizeof(TerrainVertex) * vertices.size());
 }
@@ -423,7 +425,8 @@ std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(
 uint32_t WorldRenderer::mapChunks(const glm::vec2& camera_pos)
 {
   auto chunks = generateChunkMap(camera_pos);
-  chunkAllocator.genBindings(*this, chunks);
-  std::memcpy(chunkMap.data(), chunks.data(), sizeof(Chunk) * chunks.size());
+  terrainBuffers.get().chunkAllocator.genBindings(*this, chunks);
+  std::memcpy(terrainBuffers.get().chunkMap.data(), chunks.data(), sizeof(Chunk) * chunks.size());
+  terrainBuffers.flip();
   return static_cast<uint32_t>(chunks.size());
 }
