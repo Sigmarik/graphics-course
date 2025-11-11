@@ -28,7 +28,8 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
 
 void WorldRenderer::loadScene(std::filesystem::path path)
 {
-  sceneMgr->selectScene(path);
+  // sceneMgr->selectScene(path);
+  sceneMgr->selectCompressedScene(path);
 }
 
 void WorldRenderer::loadShaders()
@@ -44,14 +45,14 @@ void WorldRenderer::setupPipelines(vk::Format swapchain_format)
 {
   etna::VertexShaderInputDescription sceneVertexInputDesc{
     .bindings = {etna::VertexShaderInputDescription::Binding{
-      .byteStreamDescription = sceneMgr->getVertexFormatDescription(),
+      .byteStreamDescription = sceneMgr->getCompressedVertexFormatDescription(),
     }},
   };
 
   auto& pipelineManager = etna::get_context().getPipelineManager();
 
-  staticMeshPipeline = {};
-  staticMeshPipeline = pipelineManager.createGraphicsPipeline(
+  terrainPipeline = {};
+  terrainPipeline = pipelineManager.createGraphicsPipeline(
     "static_mesh_material",
     etna::GraphicsPipeline::CreateInfo{
       .vertexShaderInput = sceneVertexInputDesc,
@@ -133,7 +134,7 @@ void WorldRenderer::renderWorld(
       {{.image = target_image, .view = target_image_view}},
       {.image = mainViewDepth.get(), .view = mainViewDepth.getView({})});
 
-    cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, staticMeshPipeline.getVkPipeline());
-    renderScene(cmd_buf, worldViewProj, staticMeshPipeline.getVkPipelineLayout());
+    cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, terrainPipeline.getVkPipeline());
+    renderScene(cmd_buf, worldViewProj, terrainPipeline.getVkPipelineLayout());
   }
 }

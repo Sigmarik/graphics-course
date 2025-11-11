@@ -7,7 +7,7 @@ add_executable(shadowmap
 )
 
 target_link_libraries(shadowmap
-  PRIVATE glfw etna glm::glm wsi gui scene render_utils)
+  PRIVATE glfw etna glm wsi gui scene render_utils)
 
 target_add_shaders(shadowmap
   shaders/simple.vert
