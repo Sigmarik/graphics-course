@@ -1,6 +1,6 @@
 #include "WorldRenderer.hpp"
 
-#include "noise.h"
+#include "../../include/noise.h"
 
 #include <etna/GlobalContext.hpp>
 #include <etna/PipelineManager.hpp>
@@ -356,9 +356,6 @@ static void cellify(
 
   glm::vec2 approxCenter = glm::vec2(start) + static_cast<float>(size * count) / 2.0f;
   glm::ivec2 compensation = glm::floor((center - approxCenter) / static_cast<float>(size));
-
-  assert(abs(compensation.x) <= RING_WIDTH);
-  assert(abs(compensation.y) <= RING_WIDTH);
 
   for (unsigned idX = 0; idX < count; ++idX)
   {
