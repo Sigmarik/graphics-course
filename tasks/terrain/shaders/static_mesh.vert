@@ -26,8 +26,8 @@ layout(std140, set = 0, binding = 0) readonly buffer Elevation
 
 struct ChunkBinding
 {
-  vec2 position;
-  float size;
+  ivec2 position;
+  uint size;
   uint offset;
 };
 
@@ -37,7 +37,7 @@ layout(std140, set = 0, binding = 1) readonly buffer Bindings
 };
 
 
-layout (location = 0 ) out VS_OUT
+layout (location = 0) out VS_OUT
 {
   vec3 wPos;
   vec3 wNorm;
@@ -47,13 +47,15 @@ layout (location = 0 ) out VS_OUT
 
 out gl_PerVertex { vec4 gl_Position; };
 
+const uint CHUNK_RESOLUTION = 5;
+
 void main(void)
 {
   // We don't even need to divide vectors by 127 as they get normalized anyways.
   ChunkBinding binding = chunkBindings[gl_InstanceIndex];
-  vec2 lateralPos = vec2(vPos) / 16.0 * binding.size + binding.position;
+  vec2 lateralPos = vec2(vPos) / (CHUNK_RESOLUTION - 1) * binding.size + binding.position;
 
-  uint index = binding.offset + vPos.x * 17 + vPos.y;
+  uint index = binding.offset + vPos.x * CHUNK_RESOLUTION + vPos.y;
   TerrainDot terrainPoint = terrainDots[index];
 
   const vec3 wPos = vec3(lateralPos.y, terrainPoint.elevation, lateralPos.x);

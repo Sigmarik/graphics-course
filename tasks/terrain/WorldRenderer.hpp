@@ -31,11 +31,11 @@ public:
 
   struct Chunk
   {
-    glm::vec2 position{};
-    float size = 16.0;
+    glm::ivec2 position{};
+    uint32_t size = 1;
     uint32_t offset = 0;
   };
-  static constexpr unsigned CHUNK_RESOLUTION = 17;
+  static constexpr unsigned CHUNK_RESOLUTION = 5;
 
 private:
   etna::Image mainViewDepth;
@@ -62,14 +62,34 @@ private:
 
   void generateChunkMesh();
 
+  struct ChunkId
+  {
+    int posX, posY;
+    unsigned size;
+
+    static ChunkId from_chunk(const Chunk& chunk)
+    {
+      ChunkId id;
+      id.posX = chunk.position.x;
+      id.posY = chunk.position.y;
+      id.size = chunk.size;
+      return id;
+    }
+
+    bool operator<(const ChunkId& chunk) const
+    {
+      return posX < chunk.posX || (posX == chunk.posX && (posY < chunk.posY || (posY == chunk.posY && size < chunk.size)));
+    }
+  };
+
   struct BindingManager
   {
-    std::map<uint64_t, uint32_t> bindings{};
-    std::set<uint32_t> freeBindings{};
+    std::map<ChunkId, uint32_t> bindings{};
 
-    uint32_t getBinding(glm::ivec2 position);
-    void freeBinding(glm::vec2 position);
+    void genBindings(WorldRenderer& world, std::vector<Chunk>& chunks);
   };
+
+  BindingManager chunkAllocator{};
 
   void blitChunk(Chunk& chunk);
   std::vector<Chunk> generateChunkMap(const glm::vec2& camera_pos) const;

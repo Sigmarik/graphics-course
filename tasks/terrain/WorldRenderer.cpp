@@ -177,10 +177,11 @@ void WorldRenderer::renderWorld(
 
 static float elevationAt(const glm::vec2& pos)
 {
-  static constexpr siv::BasicPerlinNoise<float> PERLIN_NOISE;
+  static const siv::BasicPerlinNoise<float> PERLIN_NOISE(0);
 
   glm::vec2 scaledPosition = pos / 100.0f;
-  return PERLIN_NOISE.octave2D(scaledPosition.x, scaledPosition.y, 3) * 7.0f;
+  return PERLIN_NOISE.octave2D_01(scaledPosition.x, scaledPosition.y, 5) * 60.0f *
+    (glm::length(pos) * 0.001f + 1.0f);
 }
 
 WorldRenderer::TerrainVertex WorldRenderer::terrainAtPosition(const glm::vec2& pos) const
@@ -239,6 +240,59 @@ void WorldRenderer::generateChunkMesh()
   std::memcpy(chunkMeshIndices.data(), indices.data(), sizeof(uint32_t) * indices.size());
 }
 
+void WorldRenderer::BindingManager::genBindings(WorldRenderer& world, std::vector<Chunk>& chunks)
+{
+  if (bindings.empty())
+  {
+    unsigned id = 0;
+    for (Chunk& chunk : chunks)
+    {
+      chunk.offset = id * CHUNK_RESOLUTION * CHUNK_RESOLUTION;
+      world.blitChunk(chunk);
+      ++id;
+      bindings.emplace(ChunkId::from_chunk(chunk), chunk.offset);
+    }
+    return;
+  }
+
+  std::vector<bool> allocated(chunks.size(), false);
+  std::vector<Chunk*> chunkQueue;
+
+  std::map<ChunkId, uint32_t> newAllocations;
+
+  for (Chunk& chunk : chunks)
+  {
+    auto found = bindings.find(ChunkId::from_chunk(chunk));
+    if (found == bindings.end())
+    {
+      chunkQueue.emplace_back(&chunk);
+    }
+    else
+    {
+      newAllocations.emplace(found->first, found->second);
+      chunk.offset = found->second;
+      allocated[chunk.offset / CHUNK_RESOLUTION / CHUNK_RESOLUTION] = true;
+    }
+  }
+
+  std::vector<uint32_t> unusedBindings;
+  for (uint32_t bnd = 0; bnd < allocated.size(); bnd++)
+  {
+    if (!allocated[bnd])
+      unusedBindings.emplace_back(bnd);
+  }
+
+  for (Chunk* chunk : chunkQueue)
+  {
+    chunk->offset = unusedBindings.back() * CHUNK_RESOLUTION * CHUNK_RESOLUTION;
+    unusedBindings.pop_back();
+    world.blitChunk(*chunk);
+    newAllocations.emplace(ChunkId::from_chunk(*chunk), chunk->offset);
+  }
+
+  bindings = std::move(newAllocations);
+}
+
 void WorldRenderer::blitChunk(Chunk& chunk)
 {
   std::vector<TerrainVertex> vertices;
@@ -263,7 +317,7 @@ struct ChunkArray
 {
   std::vector<WorldRenderer::Chunk> chunks;
 
-  void add(glm::vec2 pos, float size)
+  void add(glm::ivec2 pos, unsigned size)
   {
     WorldRenderer::Chunk chunk;
     chunk.position = pos;
@@ -274,12 +328,13 @@ struct ChunkArray
   }
 };
 
-static constexpr unsigned RING_WIDTH = 1;
+static constexpr unsigned RING_WIDTH = 4;
 
 static void cellify(
   ChunkArray& chunks,
-  glm::vec2 start,
-  float size,
+  const glm::ivec2& start,
+  const glm::vec2& center,
+  unsigned size,
   unsigned count,
   unsigned subdivisions)
 {
@@ -289,7 +344,7 @@ static void cellify(
     {
       for (unsigned idY = 0; idY < count; ++idY)
       {
-        chunks.add(start + glm::vec2(idX, idY) * size, size);
+        chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
       }
     }
     return;
@@ -301,7 +356,7 @@ static void cellify(
   {
     for (unsigned idY = 0; idY < RING_WIDTH; ++idY)
     {
-      chunks.add(start + glm::vec2(idX, idY) * size, size);
+      chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
@@ -309,7 +364,7 @@ static void cellify(
   {
     for (unsigned idY = count - RING_WIDTH; idY < count; ++idY)
     {
-      chunks.add(start + glm::vec2(idX, idY) * size, size);
+      chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
@@ -317,7 +372,7 @@ static void cellify(
   {
     for (unsigned idY = 0; idY < RING_WIDTH; ++idY)
     {
-      chunks.add(start + glm::vec2(idX, idY) * size, size);
+      chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
@@ -325,7 +380,7 @@ static void cellify(
   {
     for (unsigned idY = RING_WIDTH; idY + RING_WIDTH < count; ++idY)
     {
-      chunks.add(start + glm::vec2(idX, idY) * size, size);
+      chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
@@ -333,13 +388,14 @@ static void cellify(
   {
     for (unsigned idY = RING_WIDTH; idY + RING_WIDTH < count; ++idY)
     {
-      chunks.add(start + glm::vec2(idX, idY) * size, size);
+      chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
   cellify(
     chunks,
-    start + glm::vec2(size) * static_cast<float>(RING_WIDTH),
+    start + glm::ivec2(size) * static_cast<int>(RING_WIDTH),
+    center,
     size / 2,
     (count - RING_WIDTH * 2) * 2,
     subdivisions - 1);
@@ -348,12 +404,17 @@ static void cellify(
 std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec2& trueOrigin) const
 {
   ChunkArray chunks;
-  float maxSize = 256.0f;
-  float minSize = 16.0f;
-  unsigned largeChunkCount = 5;
-  glm::ivec2 origin = glm::floor(trueOrigin / minSize);
+  unsigned maxSize = 64;
+  unsigned largeChunkCount = 17;
+  glm::ivec2 origin = glm::floor(trueOrigin / static_cast<float>(maxSize));
 
-  cellify(chunks, glm::vec2(origin) * minSize - largeChunkCount * maxSize / 2, maxSize, largeChunkCount, 2);
+  cellify(
+    chunks,
+    origin * static_cast<int>(maxSize) - static_cast<int>(largeChunkCount * maxSize / 2),
+    trueOrigin,
+    maxSize,
+    largeChunkCount,
+    3);
 
   return chunks.chunks;
 }
@@ -361,10 +422,7 @@ std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec
 uint32_t WorldRenderer::mapChunks(const glm::vec2& camera_pos)
 {
   auto chunks = generateChunkMap(camera_pos);
-  for (auto& chunk : chunks)
-  {
-    blitChunk(chunk);
-  }
+  chunkAllocator.genBindings(*this, chunks);
   std::memcpy(chunkMap.data(), chunks.data(), sizeof(Chunk) * chunks.size());
   return static_cast<uint32_t>(chunks.size());
 }
