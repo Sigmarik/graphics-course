@@ -187,10 +187,7 @@ void WorldRenderer::renderWorld(
       pushConst2M.projView = worldViewProj;
 
       cmd_buf.pushConstants<PushConstants>(
-        terrainPipeline.getVkPipelineLayout(),
-        vk::ShaderStageFlagBits::eVertex,
-        0,
-        {pushConst2M});
+        terrainPipeline.getVkPipelineLayout(), vk::ShaderStageFlagBits::eVertex, 0, {pushConst2M});
 
       for (std::size_t j = 0; j < sceneMgr->getMeshes()[meshIdx].relemCount; ++j)
       {
