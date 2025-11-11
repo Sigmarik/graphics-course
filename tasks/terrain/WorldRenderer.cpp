@@ -328,7 +328,7 @@ struct ChunkArray
   }
 };
 
-static constexpr unsigned RING_WIDTH = 4;
+static constexpr unsigned RING_WIDTH = 5;
 
 static void cellify(
   ChunkArray& chunks,
@@ -405,7 +405,7 @@ std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec
 {
   ChunkArray chunks;
   unsigned maxSize = 64;
-  unsigned largeChunkCount = 17;
+  unsigned largeChunkCount = 19;
   glm::ivec2 origin = glm::floor(trueOrigin / static_cast<float>(maxSize));
 
   cellify(
@@ -414,7 +414,7 @@ std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec
     trueOrigin,
     maxSize,
     largeChunkCount,
-    3);
+    4);
 
   return chunks.chunks;
 }

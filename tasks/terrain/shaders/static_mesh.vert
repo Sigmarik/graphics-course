@@ -43,6 +43,7 @@ layout (location = 0) out VS_OUT
   vec3 wNorm;
   vec3 wTangent;
   vec2 texCoord;
+  float dist;
 } vOut;
 
 out gl_PerVertex { vec4 gl_Position; };
@@ -63,15 +64,10 @@ void main(void)
   const vec3 wNorm = vec3(terrainPoint.normal.y, sqrt(1.0 - normalLength * normalLength), terrainPoint.normal.x);
   const vec3 wTang = vec3(1.0, 0.0, 0.0);
 
-  mat4 model = mat4(
-  1, 0, 0, 0,
-  0, 1, 0, 0,
-  0, 0, 1, 0,
-  0, 0, 0, 1);
-  vOut.wPos   = (model * vec4(wPos, 1.0f)).xyz;
-  vOut.wNorm  = normalize(mat3(transpose(inverse(model))) * wNorm);
-  vOut.wTangent = normalize(mat3(transpose(inverse(model))) * wTang);
+  vOut.wPos   = wPos.xyz;
+  vOut.wNorm  = normalize(wNorm);
+  vOut.wTangent = normalize(wTang);
   vOut.texCoord = wPos.xz;
-
   gl_Position   = params.mProjView * vec4(vOut.wPos, 1.0);
+  vOut.dist = gl_Position.z;
 }

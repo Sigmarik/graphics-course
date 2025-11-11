@@ -11,6 +11,7 @@ layout(location = 0) in VS_OUT
   vec3 wNorm;
   vec3 wTangent;
   vec2 texCoord;
+  float wDist;
 } surf;
 
 const vec3 kSunVector = vec3(5.0, 10.0, 2.0);
@@ -31,5 +32,6 @@ void main()
   const vec3 diffuse = max(dot(normal, lightDir), 0.0f) * lightColor;
   const float ambient = 0.4;
   out_fragColor.rgb = (diffuse * (1.0 - ambient) + ambient) * surfaceColor;
+  out_fragColor.rgb = mix(out_fragColor.rgb, vec3(0.0, 0.0, 0.0), surf.wDist / 1000.0);
   out_fragColor.a = 1.0f;
 }
