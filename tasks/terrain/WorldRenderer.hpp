@@ -78,7 +78,8 @@ private:
 
     bool operator<(const ChunkId& chunk) const
     {
-      return posX < chunk.posX || (posX == chunk.posX && (posY < chunk.posY || (posY == chunk.posY && size < chunk.size)));
+      return posX < chunk.posX ||
+        (posX == chunk.posX && (posY < chunk.posY || (posY == chunk.posY && size < chunk.size)));
     }
   };
 

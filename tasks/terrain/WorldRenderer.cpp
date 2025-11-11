@@ -181,8 +181,7 @@ static float elevationAt(const glm::vec2& pos)
 
   glm::vec2 scaledPosition = pos / 100.0f;
   float noise = PERLIN_NOISE.octave2D_01(scaledPosition.x, scaledPosition.y, 5);
-  return noise * noise * 60.0f *
-    (glm::length(pos) * 0.001f + 1.0f);
+  return noise * noise * 60.0f * (glm::length(pos) * 0.001f + 1.0f);
 }
 
 WorldRenderer::TerrainVertex WorldRenderer::terrainAtPosition(const glm::vec2& pos) const
