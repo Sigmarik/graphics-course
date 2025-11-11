@@ -18,7 +18,8 @@ const vec3 kSunVector = vec3(5.0, 10.0, 2.0);
 
 vec3 colorBySlope(float slope)
 {
-  return slope > 0.7 ? vec3(0.3, 0.3, 0.35) : vec3(0.8, 0.8, 0.85);
+  return slope > 0.7 ? vec3(0.3, 0.3, 0.37) : vec3(0.9, 0.9, 1.0);
+//  return slope > 0.7 ? vec3(0.3, 0.3, 0.35) : vec3(0.8, 0.8, 0.85);
 }
 
 void main()
@@ -32,6 +33,6 @@ void main()
   const vec3 diffuse = max(dot(normal, lightDir), 0.0f) * lightColor;
   const float ambient = 0.4;
   out_fragColor.rgb = (diffuse * (1.0 - ambient) + ambient) * surfaceColor;
-  out_fragColor.rgb = mix(out_fragColor.rgb, vec3(0.0, 0.0, 0.0), surf.wDist / 1000.0);
+  out_fragColor.rgb = mix(out_fragColor.rgb, vec3(0.0, 0.0, 0.0), surf.wDist / 700.0);
   out_fragColor.a = 1.0f;
 }

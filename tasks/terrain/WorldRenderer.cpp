@@ -180,7 +180,8 @@ static float elevationAt(const glm::vec2& pos)
   static const siv::BasicPerlinNoise<float> PERLIN_NOISE(0);
 
   glm::vec2 scaledPosition = pos / 100.0f;
-  return PERLIN_NOISE.octave2D_01(scaledPosition.x, scaledPosition.y, 5) * 60.0f *
+  float noise = PERLIN_NOISE.octave2D_01(scaledPosition.x, scaledPosition.y, 5);
+  return noise * noise * 60.0f *
     (glm::length(pos) * 0.001f + 1.0f);
 }
 
@@ -352,17 +353,15 @@ static void cellify(
 
   assert(count > RING_WIDTH * 2);
 
-  for (unsigned idX = 0; idX < count; ++idX)
-  {
-    for (unsigned idY = 0; idY < RING_WIDTH; ++idY)
-    {
-      chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
-    }
-  }
+  glm::vec2 approxCenter = glm::vec2(start) + static_cast<float>(size * count) / 2.0f;
+  glm::ivec2 compensation = glm::floor((center - approxCenter) / static_cast<float>(size));
+
+  assert(abs(compensation.x) <= RING_WIDTH);
+  assert(abs(compensation.y) <= RING_WIDTH);
 
   for (unsigned idX = 0; idX < count; ++idX)
   {
-    for (unsigned idY = count - RING_WIDTH; idY < count; ++idY)
+    for (unsigned idY = 0; idY < RING_WIDTH + compensation.y; ++idY)
     {
       chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
@@ -370,23 +369,25 @@ static void cellify(
 
   for (unsigned idX = 0; idX < count; ++idX)
   {
-    for (unsigned idY = 0; idY < RING_WIDTH; ++idY)
+    for (unsigned idY = count - RING_WIDTH + compensation.y; idY < count; ++idY)
     {
       chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
-  for (unsigned idX = 0; idX < RING_WIDTH; ++idX)
+  for (unsigned idX = 0; idX < RING_WIDTH + compensation.x; ++idX)
   {
-    for (unsigned idY = RING_WIDTH; idY + RING_WIDTH < count; ++idY)
+    for (unsigned idY = RING_WIDTH + compensation.y; idY + RING_WIDTH - compensation.y < count;
+         ++idY)
     {
       chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
   }
 
-  for (unsigned idX = count - RING_WIDTH; idX < count; ++idX)
+  for (unsigned idX = count - RING_WIDTH + compensation.x; idX < count; ++idX)
   {
-    for (unsigned idY = RING_WIDTH; idY + RING_WIDTH < count; ++idY)
+    for (unsigned idY = RING_WIDTH + compensation.y; idY + RING_WIDTH - compensation.y < count;
+         ++idY)
     {
       chunks.add(start + glm::ivec2(idX, idY) * static_cast<int>(size), size);
     }
@@ -394,27 +395,28 @@ static void cellify(
 
   cellify(
     chunks,
-    start + glm::ivec2(size) * static_cast<int>(RING_WIDTH),
+    start + glm::ivec2(size) * static_cast<int>(RING_WIDTH) + compensation * static_cast<int>(size),
     center,
     size / 2,
     (count - RING_WIDTH * 2) * 2,
     subdivisions - 1);
 }
 
-std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec2& trueOrigin) const
+std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(
+  const glm::vec2& true_origin) const
 {
   ChunkArray chunks;
   unsigned maxSize = 64;
   unsigned largeChunkCount = 19;
-  glm::ivec2 origin = glm::floor(trueOrigin / static_cast<float>(maxSize));
+  glm::ivec2 origin = glm::floor(true_origin / static_cast<float>(maxSize));
 
   cellify(
     chunks,
     origin * static_cast<int>(maxSize) - static_cast<int>(largeChunkCount * maxSize / 2),
-    trueOrigin,
+    true_origin,
     maxSize,
     largeChunkCount,
-    4);
+    3);
 
   return chunks.chunks;
 }
