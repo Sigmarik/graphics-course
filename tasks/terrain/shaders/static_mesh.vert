@@ -57,9 +57,8 @@ void main(void)
   TerrainDot terrainPoint = terrainDots[index];
 
   const vec3 wPos = vec3(lateralPos.y, terrainPoint.elevation, lateralPos.x);
-//  const vec3 wPos = vec3(lateralPos.y, float(index) / 16, lateralPos.x);
-//  const vec3 wNorm = normalize(vec3(terrainPoint.normal.y, 1.0, terrainPoint.normal.x));
-  const vec3 wNorm = normalize(vec3(0.0, 1.0, 0.0));
+  float normalLength = length(terrainPoint.normal);
+  const vec3 wNorm = vec3(terrainPoint.normal.y, sqrt(1.0 - normalLength * normalLength), terrainPoint.normal.x);
   const vec3 wTang = vec3(1.0, 0.0, 0.0);
 
   mat4 model = mat4(

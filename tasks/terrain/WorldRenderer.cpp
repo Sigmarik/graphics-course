@@ -1,6 +1,7 @@
 #include "WorldRenderer.hpp"
 
 #include "BoundingBox.hpp"
+#include "noise.h"
 
 #include <etna/GlobalContext.hpp>
 #include <etna/PipelineManager.hpp>
@@ -176,7 +177,10 @@ void WorldRenderer::renderWorld(
 
 static float elevationAt(const glm::vec2& pos)
 {
-  return pos.x;
+  static constexpr siv::BasicPerlinNoise<float> PERLIN_NOISE;
+
+  glm::vec2 scaledPosition = pos / 100.0f;
+  return PERLIN_NOISE.octave2D(scaledPosition.x, scaledPosition.y, 3) * 7.0f;
 }
 
 WorldRenderer::TerrainVertex WorldRenderer::terrainAtPosition(const glm::vec2& pos) const
@@ -185,8 +189,10 @@ WorldRenderer::TerrainVertex WorldRenderer::terrainAtPosition(const glm::vec2& p
   TerrainVertex vtx;
   vtx.elevation = elevationAt(pos);
   constexpr float EPS = 0.01f;
-  vtx.normal.x = (elevationAt(pos + glm::vec2(EPS, 0.0)) - vtx.elevation) / EPS;
-  vtx.normal.y = (elevationAt(pos + glm::vec2(0.0, EPS)) - vtx.elevation) / EPS;
+  glm::vec3 dx = glm::vec3(EPS, elevationAt(pos + glm::vec2(EPS, 0.0)) - vtx.elevation, 0.0);
+  glm::vec3 dy = glm::vec3(0.0, elevationAt(pos + glm::vec2(0.0, EPS)) - vtx.elevation, EPS);
+  glm::vec3 normal = glm::normalize(glm::cross(dy, dx));
+  vtx.normal = glm::vec2(normal.z, normal.x);
   return vtx;
 }
 
@@ -242,29 +248,114 @@ void WorldRenderer::blitChunk(Chunk& chunk)
     for (unsigned dy = 0; dy < CHUNK_RESOLUTION; ++dy)
     {
       glm::vec2 pos = chunk.position;
-      pos.x += static_cast<float>(dx) / CHUNK_RESOLUTION * chunk.size;
-      pos.y += static_cast<float>(dy) / CHUNK_RESOLUTION * chunk.size;
+      pos.x += static_cast<float>(dx) / (CHUNK_RESOLUTION - 1) * chunk.size;
+      pos.y += static_cast<float>(dy) / (CHUNK_RESOLUTION - 1) * chunk.size;
       vertices.emplace_back(terrainAtPosition(pos));
     }
   }
   std::memcpy(
-    chunkElevationBuffer.data() + chunk.offset,
+    chunkElevationBuffer.data() + chunk.offset * sizeof(TerrainVertex),
     vertices.data(),
     sizeof(TerrainVertex) * vertices.size());
 }
 
-std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec2&) const
+struct ChunkArray
 {
-  std::vector<Chunk> chunks;
+  std::vector<WorldRenderer::Chunk> chunks;
 
-  // Only a single debug "chunk"
-  Chunk chunk;
-  chunk.position = glm::vec2(0.0, 0.0);
-  chunk.offset = 0;
-  chunk.size = 16.0f;
-  chunks.push_back(chunk);
+  void add(glm::vec2 pos, float size)
+  {
+    WorldRenderer::Chunk chunk;
+    chunk.position = pos;
+    chunk.size = size;
+    chunk.offset = static_cast<uint32_t>(
+      chunks.size() * WorldRenderer::CHUNK_RESOLUTION * WorldRenderer::CHUNK_RESOLUTION);
+    chunks.emplace_back(std::move(chunk));
+  }
+};
 
-  return chunks;
+static constexpr unsigned RING_WIDTH = 1;
+
+static void cellify(
+  ChunkArray& chunks,
+  glm::vec2 start,
+  float size,
+  unsigned count,
+  unsigned subdivisions)
+{
+  if (subdivisions == 0)
+  {
+    for (unsigned idX = 0; idX < count; ++idX)
+    {
+      for (unsigned idY = 0; idY < count; ++idY)
+      {
+        chunks.add(start + glm::vec2(idX, idY) * size, size);
+      }
+    }
+    return;
+  }
+
+  assert(count > RING_WIDTH * 2);
+
+  for (unsigned idX = 0; idX < count; ++idX)
+  {
+    for (unsigned idY = 0; idY < RING_WIDTH; ++idY)
+    {
+      chunks.add(start + glm::vec2(idX, idY) * size, size);
+    }
+  }
+
+  for (unsigned idX = 0; idX < count; ++idX)
+  {
+    for (unsigned idY = count - RING_WIDTH; idY < count; ++idY)
+    {
+      chunks.add(start + glm::vec2(idX, idY) * size, size);
+    }
+  }
+
+  for (unsigned idX = 0; idX < count; ++idX)
+  {
+    for (unsigned idY = 0; idY < RING_WIDTH; ++idY)
+    {
+      chunks.add(start + glm::vec2(idX, idY) * size, size);
+    }
+  }
+
+  for (unsigned idX = 0; idX < RING_WIDTH; ++idX)
+  {
+    for (unsigned idY = RING_WIDTH; idY + RING_WIDTH < count; ++idY)
+    {
+      chunks.add(start + glm::vec2(idX, idY) * size, size);
+    }
+  }
+
+  for (unsigned idX = count - RING_WIDTH; idX < count; ++idX)
+  {
+    for (unsigned idY = RING_WIDTH; idY + RING_WIDTH < count; ++idY)
+    {
+      chunks.add(start + glm::vec2(idX, idY) * size, size);
+    }
+  }
+
+  cellify(
+    chunks,
+    start + glm::vec2(size) * static_cast<float>(RING_WIDTH),
+    size / 2,
+    (count - RING_WIDTH * 2) * 2,
+    subdivisions - 1);
+}
+
+std::vector<WorldRenderer::Chunk> WorldRenderer::generateChunkMap(const glm::vec2& trueOrigin) const
+{
+  ChunkArray chunks;
+  float maxSize = 256.0f;
+  float minSize = 16.0f;
+  unsigned largeChunkCount = 5;
+  glm::ivec2 origin = glm::floor(trueOrigin / minSize);
+
+  cellify(chunks, glm::vec2(origin) * minSize - largeChunkCount * maxSize / 2, maxSize, largeChunkCount, 2);
+
+  return chunks.chunks;
 }
 
 uint32_t WorldRenderer::mapChunks(const glm::vec2& camera_pos)

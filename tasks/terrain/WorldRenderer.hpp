@@ -29,10 +29,16 @@ public:
   void renderWorld(
     vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
 
+  struct Chunk
+  {
+    glm::vec2 position{};
+    float size = 16.0;
+    uint32_t offset = 0;
+  };
+  static constexpr unsigned CHUNK_RESOLUTION = 17;
+
 private:
   etna::Image mainViewDepth;
-
-  static constexpr unsigned CHUNK_RESOLUTION = 17;
 
   struct ChunkVertex
   {
@@ -63,13 +69,6 @@ private:
 
     uint32_t getBinding(glm::ivec2 position);
     void freeBinding(glm::vec2 position);
-  };
-
-  struct Chunk
-  {
-    glm::vec2 position{};
-    float size = 16.0;
-    uint32_t offset = 0;
   };
 
   void blitChunk(Chunk& chunk);
