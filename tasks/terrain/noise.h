@@ -287,7 +287,7 @@ namespace perlin_detail
 //
 //	These functions are provided for consistency.
 //	You may get different results from std::shuffle() with different standard library
-//implementations.
+// implementations.
 //
 SIVPERLIN_CONCEPT_URBG
 [[nodiscard]] inline std::uint64_t Random(const std::uint64_t max, URBG&& urbg)
