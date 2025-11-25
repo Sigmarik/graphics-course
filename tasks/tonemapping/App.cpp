@@ -628,8 +628,10 @@ void App::approximateBrightnessDistribution(vk::CommandBuffer& current_cmd_buf)
   current_cmd_buf.copyImageToBuffer(
     readbackImage.get(), vk::ImageLayout::eGeneral, brightnessReadbackBuffer.get(), 1u, &kRegion);
 
+  float interpolationSpeed = 0.03f;
+
   uint32_t pixelData = *reinterpret_cast<const uint32_t*>(brightnessReadbackBuffer.data());
-  tonemappingParams.avg = tonemappingParams.avg * 0.99f + get_red(pixelData) * 0.01f;
+  tonemappingParams.avg = tonemappingParams.avg * (1.0f - interpolationSpeed) + get_red(pixelData) * interpolationSpeed;
   tonemappingParams.var = std::max(tonemappingParams.avg, 0.1f);
   tonemappingParams.resolutionX = resolution.x;
   tonemappingParams.resolutionY = resolution.y;
