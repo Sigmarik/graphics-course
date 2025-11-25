@@ -198,7 +198,8 @@ void App::drawFrame()
         vk::ImageAspectFlagBits::eColor);
       etna::flush_barriers(currentCmdBuf);
 
-      constexpr auto kSubresurce = vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
+      constexpr auto kSubresurce =
+        vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
       const vk::ArrayWrapper1D<vk::Offset3D, 2UL> kOffsets = {
         {vk::Offset3D{0, 0, 0},
          vk::Offset3D{static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y), 1}}};
