@@ -1,6 +1,7 @@
 #pragma once
 
 #include "etna/BlockingTransferHelper.hpp"
+#include "etna/ComputePipeline.hpp"
 #include "etna/GraphicsPipeline.hpp"
 
 
@@ -29,6 +30,8 @@ private:
 
   void importTextures();
 
+  void approximateBrightnessDistribution(vk::CommandBuffer& buffer);
+
 private:
   OsWindowingManager windowing;
   std::unique_ptr<OsWindow> osWindow;
@@ -52,20 +55,34 @@ private:
     float avg, var;
   };
 
+  struct AveragingParams
+  {
+    uint32_t resolutionX, resolutionY;
+    uint32_t shiftX, shiftY;
+  };
+
   etna::Sampler sampler;
 
   etna::Image skyTexture;
   etna::Image ballTexture;
   static constexpr glm::uvec2 BALL_TEXTURE_RESOLUTION{2048, 2048};
 
+  etna::Image hdrFrameCopy;
+
   etna::Image hdrFrame;
+  etna::Image hdrFrameBackBuf;
+
+  std::unique_ptr<etna::BlockingTransferHelper> transferHelper;
+  etna::Buffer brightnessReadbackBuffer;
 
   etna::GraphicsPipeline intermediatePipeline;
   etna::GraphicsPipeline mainPipeline;
   etna::GraphicsPipeline toneMappingPipeline;
+  etna::ComputePipeline avgBrightnessPipeline;
 
   ShaderParams params;
   TonemappingParams tonemappingParams;
+  AveragingParams averagingParams;
 
   std::chrono::steady_clock::time_point startTime;
 };

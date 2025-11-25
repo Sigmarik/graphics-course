@@ -49,6 +49,11 @@ App::App()
     .resolution = resolution,
   });
 
+  tonemappingParams.avg = 0.7f;
+  tonemappingParams.var = std::max(tonemappingParams.avg, 0.1f);
+  tonemappingParams.resolutionX = resolution.x;
+  tonemappingParams.resolutionY = resolution.y;
+
   // But we also need to hook the OS window up to Vulkan manually!
   {
     // First, we ask GLFW to provide a "surface" for the window,
@@ -87,6 +92,8 @@ App::App()
     "toy_tonemap",
     {TONEMAPPING_SHADERS_ROOT "tonemap.frag.spv", TONEMAPPING_SHADERS_ROOT "toy.vert.spv"});
 
+  etna::create_program("toy_avg", {TONEMAPPING_SHADERS_ROOT "avg.comp.spv"});
+
   etna::create_program(
     "intermediate",
     {TONEMAPPING_SHADERS_ROOT "intermediate.frag.spv", TONEMAPPING_SHADERS_ROOT "toy.vert.spv"});
@@ -124,6 +131,9 @@ App::App()
         },
     });
 
+  avgBrightnessPipeline =
+    etna::get_context().getPipelineManager().createComputePipeline("toy_avg", {});
+
   ballTexture = etna::get_context().createImage(etna::Image::CreateInfo{
     .extent = vk::Extent3D{BALL_TEXTURE_RESOLUTION.x, BALL_TEXTURE_RESOLUTION.y, 1},
     .name = "ballTexture",
@@ -131,17 +141,46 @@ App::App()
     .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
   });
 
+  hdrFrameCopy = etna::get_context().createImage(etna::Image::CreateInfo{
+    .extent = vk::Extent3D{resolution.x, resolution.y, 1},
+    .name = "HDR frame copy",
+    .format = vk::Format::eB10G11R11UfloatPack32,
+    .imageUsage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+  });
+
   hdrFrame = etna::get_context().createImage(etna::Image::CreateInfo{
     .extent = vk::Extent3D{resolution.x, resolution.y, 1},
     .name = "HDR frame",
     .format = vk::Format::eB10G11R11UfloatPack32,
-    .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
+    .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage |
+      vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eSampled,
+  });
+
+  hdrFrameBackBuf = etna::get_context().createImage(etna::Image::CreateInfo{
+    .extent = vk::Extent3D{resolution.x, resolution.y, 1},
+    .name = "HDR frame backbuffer",
+    .format = vk::Format::eB10G11R11UfloatPack32,
+    .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc |
+      vk::ImageUsageFlagBits::eSampled,
   });
 
   sampler = etna::Sampler(etna::Sampler::CreateInfo{
     .filter = vk::Filter::eLinear,
     .addressMode = vk::SamplerAddressMode::eRepeat,
     .name = "default_sampler"});
+
+  transferHelper =
+    std::make_unique<etna::BlockingTransferHelper>(etna::BlockingTransferHelper::CreateInfo{
+      .stagingSize = sizeof(uint32_t),
+    });
+
+  brightnessReadbackBuffer = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = sizeof(uint32_t),
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_TO_CPU,
+    .name = "brightnessReadbackBuffer",
+  });
+  brightnessReadbackBuffer.map();
 
   params.resolutionX = resolution.x;
   params.resolutionY = resolution.y;
@@ -293,11 +332,48 @@ void App::drawFrame()
 
         currentCmdBuf.draw(3, 1, 0, 0);
       }
-      etna::flush_barriers(currentCmdBuf);
 
       etna::set_state(
         currentCmdBuf,
         hdrFrame.get(),
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferRead,
+        vk::ImageLayout::eTransferSrcOptimal,
+        vk::ImageAspectFlagBits::eColor);
+      etna::set_state(
+        currentCmdBuf,
+        hdrFrameCopy.get(),
+        vk::PipelineStageFlagBits2::eTransfer,
+        vk::AccessFlagBits2::eTransferWrite,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageAspectFlagBits::eColor);
+      etna::flush_barriers(currentCmdBuf);
+
+      constexpr auto kSubresurce =
+        vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1};
+      const vk::ArrayWrapper1D<vk::Offset3D, 2UL> kOffsets = {
+        {vk::Offset3D{0, 0, 0},
+         vk::Offset3D{static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y), 1}}};
+      const vk::ImageBlit kRegion = {
+        .srcSubresource = kSubresurce,
+        .srcOffsets = kOffsets,
+        .dstSubresource = kSubresurce,
+        .dstOffsets = kOffsets,
+      };
+      currentCmdBuf.blitImage(
+        hdrFrame.get(),
+        vk::ImageLayout::eTransferSrcOptimal,
+        hdrFrameCopy.get(),
+        vk::ImageLayout::eTransferDstOptimal,
+        1,
+        &kRegion,
+        vk::Filter::eLinear);
+
+      approximateBrightnessDistribution(currentCmdBuf);
+
+      etna::set_state(
+        currentCmdBuf,
+        hdrFrameCopy.get(),
         vk::PipelineStageFlagBits2::eFragmentShader,
         vk::AccessFlagBits2::eColorAttachmentRead,
         vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -312,11 +388,6 @@ void App::drawFrame()
         vk::ImageAspectFlagBits::eColor);
       etna::flush_barriers(currentCmdBuf);
 
-      tonemappingParams.resolutionX = params.resolutionX;
-      tonemappingParams.resolutionY = params.resolutionY;
-      tonemappingParams.avg = 0.5f;
-      tonemappingParams.var = 100.0;
-
       {
         etna::RenderTargetState state{
           currentCmdBuf, {{}, {resolution.x, resolution.y}}, {{backbuffer, backbufferView}}, {}};
@@ -326,11 +397,12 @@ void App::drawFrame()
           toyBasicInfo.getDescriptorLayoutId(0),
           currentCmdBuf,
           {etna::Binding{
-            0, hdrFrame.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)}});
+            0, hdrFrameCopy.genBinding(sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)}});
 
         vk::DescriptorSet vkSet = set.getVkSet();
 
-        currentCmdBuf.bindPipeline(vk::PipelineBindPoint::eGraphics, toneMappingPipeline.getVkPipeline());
+        currentCmdBuf.bindPipeline(
+          vk::PipelineBindPoint::eGraphics, toneMappingPipeline.getVkPipeline());
 
         currentCmdBuf.bindDescriptorSets(
           vk::PipelineBindPoint::eGraphics,
@@ -424,4 +496,141 @@ void App::importTextures()
   skyTexture = etna::create_image_from_bytes(fileTextureInfo, cmdBuf, bytes);
 
   stbi_image_free(bytes);
+}
+
+static float decode_11bit_float(uint32_t bits11)
+{
+  // 11-bit layout: 1 sign bit (implicitly 0 for unsigned), 5-bit exponent, 5-bit mantissa
+  // bits11: [10:0] where bit10 = sign(assumed 0), bits[9:5]=exp (5 bits), bits[4:0]=mantissa (5
+  // bits) We'll treat it as an unsigned 11-bit float with no sign bit: exponent bias = 15 (for
+  // 5-bit exponent)
+  const int exp = (bits11 >> 6) & 0x1F; // 5-bit exponent
+  const int mant = bits11 & 0x3F;       // 5-bit mantissa
+
+  // normalized: (1 + mant/32) * 2^(exp - bias)
+  const float m = 1.0f + (float)mant / (1 << 6);
+  const int e = exp - 15;
+  return exp2f(static_cast<float>(e)) * m;
+}
+
+float get_red(uint32_t b10g11r11ufloatpack_pixel)
+{
+  const uint32_t r_bits = b10g11r11ufloatpack_pixel & 0x7FFu;
+  return decode_11bit_float(r_bits);
+}
+
+void App::approximateBrightnessDistribution(vk::CommandBuffer& current_cmd_buf)
+{
+  averagingParams.resolutionX = resolution.x;
+  averagingParams.resolutionY = resolution.y;
+
+  bool useBackBuffer = true;
+  for (unsigned shift = 1; shift < resolution.x; shift *= 2, useBackBuffer = !useBackBuffer)
+  {
+    averagingParams.shiftX = shift;
+    averagingParams.shiftY = 0;
+
+    auto toyInfo = etna::get_shader_program("toy_avg");
+    const auto set = etna::create_descriptor_set(
+      toyInfo.getDescriptorLayoutId(0),
+      current_cmd_buf,
+      {
+        etna::Binding{
+          useBackBuffer ? 0u : 1u, hdrFrame.genBinding(sampler.get(), vk::ImageLayout::eGeneral)},
+        etna::Binding{
+          useBackBuffer ? 1u : 0u,
+          hdrFrameBackBuf.genBinding(sampler.get(), vk::ImageLayout::eGeneral)},
+      });
+
+    vk::DescriptorSet vkSet = set.getVkSet();
+
+    current_cmd_buf.bindPipeline(
+      vk::PipelineBindPoint::eCompute, avgBrightnessPipeline.getVkPipeline());
+    current_cmd_buf.bindDescriptorSets(
+      vk::PipelineBindPoint::eCompute,
+      avgBrightnessPipeline.getVkPipelineLayout(),
+      0,
+      1,
+      &vkSet,
+      0,
+      nullptr);
+
+    current_cmd_buf.pushConstants(
+      avgBrightnessPipeline.getVkPipelineLayout(),
+      vk::ShaderStageFlagBits::eCompute,
+      0,
+      sizeof(averagingParams),
+      &averagingParams);
+    etna::flush_barriers(current_cmd_buf);
+
+    current_cmd_buf.dispatch((resolution.x - shift + 31) / 32, (resolution.y + 31) / 32, 1);
+  }
+
+  for (unsigned shift = 1; shift < resolution.y; shift *= 2, useBackBuffer = !useBackBuffer)
+  {
+    averagingParams.shiftX = 0;
+    averagingParams.shiftY = shift;
+
+    auto toyInfo = etna::get_shader_program("toy_avg");
+    const auto set = etna::create_descriptor_set(
+      toyInfo.getDescriptorLayoutId(0),
+      current_cmd_buf,
+      {
+        etna::Binding{
+          useBackBuffer ? 0u : 1u, hdrFrame.genBinding(sampler.get(), vk::ImageLayout::eGeneral)},
+        etna::Binding{
+          useBackBuffer ? 1u : 0u,
+          hdrFrameBackBuf.genBinding(sampler.get(), vk::ImageLayout::eGeneral)},
+      });
+
+    vk::DescriptorSet vkSet = set.getVkSet();
+
+    current_cmd_buf.bindPipeline(
+      vk::PipelineBindPoint::eCompute, avgBrightnessPipeline.getVkPipeline());
+    current_cmd_buf.bindDescriptorSets(
+      vk::PipelineBindPoint::eCompute,
+      avgBrightnessPipeline.getVkPipelineLayout(),
+      0,
+      1,
+      &vkSet,
+      0,
+      nullptr);
+
+    current_cmd_buf.pushConstants(
+      avgBrightnessPipeline.getVkPipelineLayout(),
+      vk::ShaderStageFlagBits::eCompute,
+      0,
+      sizeof(averagingParams),
+      &averagingParams);
+    etna::flush_barriers(current_cmd_buf);
+
+    current_cmd_buf.dispatch(1, (resolution.y - shift + 31) / 32, 1);
+  }
+
+  etna::Image& readbackImage = useBackBuffer ? hdrFrameBackBuf : hdrFrameBackBuf;
+
+  vk::Extent3D extent = {1, 1, 1};
+  const vk::ImageSubresourceLayers subresource{
+    .aspectMask = vk::ImageAspectFlagBits::eColor,
+    .mipLevel = 0,
+    .baseArrayLayer = 0,
+    .layerCount = 1,
+  };
+  const vk::BufferImageCopy kRegion = {
+    .bufferOffset = 0,
+    .bufferRowLength = 1,
+    .bufferImageHeight = 1,
+    .imageSubresource = subresource,
+    .imageOffset = vk::Offset3D{0, 0, 0},
+    .imageExtent = extent,
+  };
+
+  current_cmd_buf.copyImageToBuffer(
+    readbackImage.get(), vk::ImageLayout::eGeneral, brightnessReadbackBuffer.get(), 1u, &kRegion);
+
+  uint32_t pixelData = *reinterpret_cast<const uint32_t*>(brightnessReadbackBuffer.data());
+  tonemappingParams.avg = tonemappingParams.avg * 0.99f + get_red(pixelData) * 0.01f;
+  tonemappingParams.var = std::max(tonemappingParams.avg, 0.1f);
+  tonemappingParams.resolutionX = resolution.x;
+  tonemappingParams.resolutionY = resolution.y;
 }

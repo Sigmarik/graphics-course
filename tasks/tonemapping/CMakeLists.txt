@@ -11,6 +11,7 @@ target_add_shaders(tonemapping
         shaders/toy.vert
         shaders/toy.frag
         shaders/tonemap.frag
+        shaders/avg.comp
         shaders/intermediate.frag
 )
 
