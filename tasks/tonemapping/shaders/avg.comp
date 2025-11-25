@@ -30,7 +30,12 @@ void main() {
     vec4 fragColor = vec4(0.0);
     vec4 thisPoint = imageLoad(sourceImage, fragCoord);
     vec4 thatPoint = imageLoad(sourceImage, shiftedPos);
-    fragColor.r = (length(thisPoint.xyz) + length(thatPoint.xyz)) / 2.0;
+    float thisBrightness = length(thisPoint.xyz);
+    float thatBrightness = length(thatPoint.xyz);
+    float maxBrightness = max(thisBrightness, thatBrightness);
+    float minBrightness = min(thisBrightness, thatBrightness);
+    // I introduce bias to the formula to make it more considerate of brighter light sources
+    fragColor.r = maxBrightness * 0.6 + minBrightness * 0.4;
 
     imageStore(resultImage, fragCoord, fragColor);
 //    imageStore(resultImage, fragCoord, vec4(1.0));
