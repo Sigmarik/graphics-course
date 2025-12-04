@@ -1,0 +1,42 @@
+#version 450
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(binding = 0, r11f_g11f_b10f) uniform readonly image2D sourceImage;
+layout(binding = 1, r11f_g11f_b10f) uniform writeonly image2D resultImage;
+
+layout(push_constant) uniform params
+{
+    uint resolutionX;
+    uint resolutionY;
+    uint shiftX;
+    uint shiftY;
+} params_t;
+
+ivec3 iResolution()
+{
+    return ivec3(params_t.resolutionX, params_t.resolutionY, 0);
+}
+
+void main() {
+    ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
+
+    if (fragCoord.x >= iResolution().x || fragCoord.y >= iResolution().y) return;
+
+    ivec2 shiftedPos = fragCoord + ivec2(params_t.shiftX, params_t.shiftY);
+    shiftedPos.x = shiftedPos.x % int(params_t.resolutionX);
+    shiftedPos.y = shiftedPos.y % int(params_t.resolutionY);
+
+    vec4 fragColor = vec4(0.0);
+    vec4 thisPoint = imageLoad(sourceImage, fragCoord);
+    vec4 thatPoint = imageLoad(sourceImage, shiftedPos);
+    float thisBrightness = length(thisPoint.xyz);
+    float thatBrightness = length(thatPoint.xyz);
+    float maxBrightness = max(thisBrightness, thatBrightness);
+    float minBrightness = min(thisBrightness, thatBrightness);
+    // I introduce bias to the formula to make it more considerate of brighter light sources
+    fragColor.r = maxBrightness * 0.6 + minBrightness * 0.4;
+
+    imageStore(resultImage, fragCoord, fragColor);
+//    imageStore(resultImage, fragCoord, vec4(1.0));
+}
