@@ -255,7 +255,7 @@ void App::drawFrame()
         currentCmdBuf,
         ballTexture.get(),
         vk::PipelineStageFlagBits2::eFragmentShader,
-        vk::AccessFlagBits2::eColorAttachmentRead,
+        vk::AccessFlagBits2::eShaderRead,
         vk::ImageLayout::eShaderReadOnlyOptimal,
         vk::ImageAspectFlagBits::eColor);
 
@@ -263,7 +263,7 @@ void App::drawFrame()
         currentCmdBuf,
         skyTexture.get(),
         vk::PipelineStageFlagBits2::eFragmentShader,
-        vk::AccessFlagBits2::eColorAttachmentRead,
+        vk::AccessFlagBits2::eShaderRead,
         vk::ImageLayout::eShaderReadOnlyOptimal,
         vk::ImageAspectFlagBits::eColor);
 
