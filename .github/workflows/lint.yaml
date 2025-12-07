@@ -21,6 +21,7 @@ jobs:
       with:
         clang-format-version: '17'
         fallback-style: 'none'
+        exclude-regex: '.*include.*'
 
     - uses: ZedThree/clang-tidy-review@v0.21.0
       id: review
@@ -45,6 +46,7 @@ jobs:
           cmake -Bbuild -S. -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DGLFW_BUILD_WAYLAND=off
         clang_tidy_checks: '' # Use closest .clang-tidy config, not some weird default
         split_workflow: true # So that comments work with fork PRs
+        exclude: 'include/**'
 
     # Upload review results as artifacts, a different workflow posts them
     # as comments. This is required due to security stuff.

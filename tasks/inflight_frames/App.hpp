@@ -1,10 +1,13 @@
 #pragma once
 
+#include "FrameMachine.hpp"
+#include "etna/GraphicsPipeline.hpp"
+
+
 #include <chrono>
 
 #include <etna/Window.hpp>
 #include <etna/PerFrameCmdMgr.hpp>
-#include <etna/ComputePipeline.hpp>
 #include <etna/Image.hpp>
 #include <etna/Sampler.hpp>
 
@@ -24,6 +27,8 @@ private:
 
   void updateParams();
 
+  void importTextures();
+
 private:
   OsWindowingManager windowing;
   std::unique_ptr<OsWindow> osWindow;
@@ -42,8 +47,15 @@ private:
   };
 
   etna::Sampler sampler;
-  etna::Image result;
-  etna::ComputePipeline pipeline;
+
+  etna::Image skyTexture;
+  etna::Image ballTexture;
+  static constexpr glm::uvec2 BALL_TEXTURE_RESOLUTION{2048, 2048};
+
+  etna::GraphicsPipeline intermediatePipeline;
+  etna::GraphicsPipeline mainPipeline;
+
+  FrameMachine<etna::Buffer, 2> constants;
 
   ShaderParams params;
 

@@ -1,32 +1,21 @@
-#version 430
+#version 450
 
-layout(local_size_x = 32, local_size_y = 32) in;
+layout(binding = 0) uniform sampler2D iBallTexture;
+layout(binding = 1) uniform sampler2D iSkyTexture;
 
-layout(binding = 0, rgba8) uniform image2D resultImage;
+layout(location = 0) out vec4 out_fragColor;
 
-layout(push_constant) uniform params
+layout(binding = 2, set = 0) uniform AppData
 {
-  uint resolutionX;
-  uint resolutionY;
-  float mouseX;
-  float mouseY;
-  float time;
-} params_t;
+  ivec2 iResolution;
+  vec2 iMouse;
+  float iTime;
+};
 
-float iTime()
+layout(location = 0) in VS_OUT
 {
-  return params_t.time;
-}
-
-ivec3 iResolution()
-{
-  return ivec3(params_t.resolutionX, params_t.resolutionY, 0);
-}
-
-vec3 iMouse()
-{
-  return vec3(params_t.mouseX, iResolution().y - params_t.mouseY, 0.0);
-}
+  vec2 wPos;
+} surf;
 
 const vec3 kUp = vec3(0.0, 1.0, 0.0);
 const float kEps = 0.01;
@@ -35,7 +24,7 @@ const float kBallRadius = 0.2;
 
 float smoothNoise(vec3 pos, float speed)
 {
-  float time = iTime() * 3.0 * speed;
+  float time = iTime * 3.0 * speed;
   return (
   sin(pos.x * 1.7 + pos.z * 0.3 + time) * 0.3 +
   cos(pos.x * 1.3 + pos.z * 0.5 + time * 0.7) * 0.2 +
@@ -63,51 +52,24 @@ vec3 rgba(int red, int green, int blue, int alpha)
 
 const float kPi = 3.1415926535;
 
+vec2 getLookDirection(vec3 vector)
+{
+  float yaw = atan(vector.z, vector.x) / kPi / 2.0;
+  float pitch = atan(vector.y, length(vector.xz)) / kPi + 0.5;
+  return vec2(yaw, 1.0 - pitch);
+}
+
 vec3 ballColor(vec3 worldNormal)
 {
-  vec3 kYellow = rgba(255, 210, 47, 1);
-  vec3 kRed = rgba(255, 92, 92, 1);
-  vec3 kBlue = rgba(77, 213, 231, 1);
-  vec3 kWhite = rgba(235, 235, 235, 1);
-
   mat3 rotation = mat3(
   0.9659258, -0.2588190, -0.0000000,
   0.2241439,  0.8365163, -0.5000000,
   0.1294095,  0.4829629,  0.8660254);
 
   vec3 normal = rotation * worldNormal;
+  vec2 direction = getLookDirection(normal);
 
-  if (length(normal.xz) < 0.3)
-  {
-    return kWhite;
-  }
-
-  vec3 color = kWhite;
-
-  float angle = atan(normal.z, normal.x) + kPi;
-  float section = angle / kPi / 2.0;
-  int segment = int(section * 6.0);
-
-  if (segment % 2 == 0)
-  {
-    color = kWhite;
-  }
-  else if (segment == 1)
-  {
-    color = kRed;
-  }
-  else if (segment == 3)
-  {
-    color = kYellow;
-  }
-  else if (segment == 5)
-  {
-    color = kBlue;
-  }
-
-  color -= vec3(1.0 / ((length(normal.xz) - 0.3) * 100.0 + 9.0));
-
-  return color;
+  return texture(iBallTexture, direction).rgb;
 }
 
 float waterPlane(vec3 pos)
@@ -134,7 +96,7 @@ float trace(int object, vec3 start, vec3 ray, out vec3 position, out vec3 normal
 {
   ray = normalize(ray);
 
-  int iterations = 17;
+  int iterations = 850;
 
   vec3 pos = start;
 
@@ -191,13 +153,29 @@ vec3 deepBlue(vec3 ray)
   return color;
 }
 
-vec3 sky(vec3 ray)
+vec3 smoothSky(vec3 ray)
 {
   vec3 zenith = rgba(82, 140, 233, 1);
   vec3 horizon = rgba(185, 230, 244, 1);
   float interpolation = smoothstep(0.0, 1.0, normalize(ray).y / 2.0 + 0.5);
 
   vec3 color = zenith * interpolation + horizon * (1.0 - interpolation);
+
+  return color;
+}
+
+vec3 sky(vec3 ray)
+{
+  vec2 dir = getLookDirection(normalize(ray));
+  dir.x += 0.75;  // 1.0 = 360 degrees
+  if (dir.x > 1.0) dir.x -= 1.0;
+  vec3 color = texture(iSkyTexture, dir).rgb;
+
+  float smoothing = 0.2;
+
+  color.x = pow(color.x, smoothing);
+  color.y = pow(color.y, smoothing);
+  color.z = pow(color.z, smoothing);
 
   return color;
 }
@@ -214,7 +192,7 @@ float specular(vec3 normal, vec3 view)
 vec3 shade(vec3 normal, vec3 view)
 {
   vec3 albedo = ballColor(normal);
-  vec3 ao = albedo * (sky(normal) + vec3(1.0)) / 2.0;
+  vec3 ao = albedo * (smoothSky(normal) + vec3(1.0)) / 2.0;
   vec3 direct = albedo * dot(normal, -kSun);
   vec3 spec = vec3(1.0) * specular(normal, view);
   return direct * 0.3 + ao * 0.9  + spec * 0.2;
@@ -261,15 +239,15 @@ vec3 shadeWater(vec3 pos, vec3 normal, vec3 view)
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-  vec2 mouse = iMouse().xy / iResolution().xy - vec2(0.5);
+  vec2 mouse = iMouse.xy / iResolution.xy - vec2(0.5);
 
   vec3 cameraPos = normalize(vec3(mouse.x, mouse.y + 0.7, 1.0)) * 0.9;
   vec3 forward = normalize(vec3(0.0, 0.1, 0.0) - cameraPos);
   vec3 right = normalize(cross(forward, kUp));
   vec3 up = normalize(cross(right, forward));
 
-  vec2 uv = fragCoord / iResolution().xy;
-  vec2 relativeScreen = (uv - 0.5) * iResolution().xy / iResolution().x * 2.0;
+  vec2 uv = fragCoord / iResolution;
+  vec2 relativeScreen = (uv - 0.5) * iResolution / iResolution.x * 2.0;
 
   vec3 ray = forward + relativeScreen.x * right + relativeScreen.y * up;
 
@@ -286,26 +264,24 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
   if ((distance(ballPosition, cameraPos) < distance(waterPosition, cameraPos) || waterDelta > kEps) &&
   ballDelta < kEps)
   {
-    col = shade(ballNormal, normalize(ballPosition - cameraPos));
+    col = colorCorrect(shade(ballNormal, normalize(ballPosition - cameraPos)));
   }
   else if (waterDelta < kEps)
   {
-    col = shadeWater(waterPosition, waterNormal, normalize(waterPosition - cameraPos));
+    col = colorCorrect(shadeWater(waterPosition, waterNormal, normalize(waterPosition - cameraPos)));
   }
-  col = colorCorrect(col);
 
   fragColor = vec4(col, 1.0);
 }
 
 void main()
 {
-  ivec2 fragCoord = ivec2(gl_GlobalInvocationID.xy);
-  ivec2 flipped = fragCoord;
-  flipped.y = iResolution().y - flipped.y;
+  vec2 pos = surf.wPos / 2.0 + vec2(0.5);
+  pos.y = 1.0 - pos.y;
+  pos = pos * vec2(iResolution);
 
   vec4 fragColor = vec4(0.0);
-  mainImage(fragColor, flipped);
+  mainImage(fragColor, pos);
 
-  if (fragCoord.x < iResolution().x && fragCoord.y < iResolution().y)
-    imageStore(resultImage, fragCoord, fragColor);
+  out_fragColor = fragColor;
 }
