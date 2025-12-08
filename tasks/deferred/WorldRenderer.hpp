@@ -37,7 +37,8 @@ private:
   void initGBuffers();
 
   void renderToGBuffers(vk::CommandBuffer cmd_buf);
-  void applyLighting(vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
+  void applyLighting(
+    vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
 
   struct PointLight
   {
