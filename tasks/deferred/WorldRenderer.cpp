@@ -63,46 +63,48 @@ void WorldRenderer::setupPipelines(vk::Format swapchain_format)
   auto& pipelineManager = etna::get_context().getPipelineManager();
 
   staticMeshPipeline = {};
-  staticMeshPipeline =
-    pipelineManager.createGraphicsPipeline(
-      "static_mesh_material",
-      etna::GraphicsPipeline::CreateInfo{
-        .vertexShaderInput = sceneVertexInputDesc,
-        .rasterizationConfig =
-          vk::PipelineRasterizationStateCreateInfo{
-            .polygonMode = vk::PolygonMode::eFill,
-            .cullMode = vk::CullModeFlagBits::eBack,
-            .frontFace = vk::FrontFace::eCounterClockwise,
-            .lineWidth = 1.f,
-          },
-        .blendingConfig =
-          {.attachments =
-             {{
-                .blendEnable = vk::False,
-                .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                  vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-              },
-              {
-                .blendEnable = vk::False,
-                .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                  vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-              },
-              {
-                .blendEnable = vk::False,
-                .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-                  vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-              }}},
-        .fragmentShaderOutput =
-          {
-            .colorAttachmentFormats =
-              {
-                geomBuffers.albedo.getFormat(),
-                geomBuffers.normal.getFormat(),
-                geomBuffers.depth.getFormat(),
-              },
-            .depthAttachmentFormat = vk::Format::eD32Sfloat,
-          },
-      });
+  staticMeshPipeline = pipelineManager.createGraphicsPipeline(
+    "static_mesh_material",
+    etna::GraphicsPipeline::CreateInfo{
+      .vertexShaderInput = sceneVertexInputDesc,
+      .rasterizationConfig =
+        vk::PipelineRasterizationStateCreateInfo{
+          .polygonMode = vk::PolygonMode::eFill,
+          .cullMode = vk::CullModeFlagBits::eBack,
+          .frontFace = vk::FrontFace::eCounterClockwise,
+          .lineWidth = 1.f,
+        },
+      .blendingConfig =
+        {
+          .attachments =
+            {{
+               .blendEnable = vk::False,
+               .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                 vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+             },
+             {
+               .blendEnable = vk::False,
+               .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                 vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+             },
+             {
+               .blendEnable = vk::False,
+               .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+                 vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+             }},
+          .logicOp = {},
+        },
+      .fragmentShaderOutput =
+        {
+          .colorAttachmentFormats =
+            {
+              geomBuffers.albedo.getFormat(),
+              geomBuffers.normal.getFormat(),
+              geomBuffers.depth.getFormat(),
+            },
+          .depthAttachmentFormat = vk::Format::eD32Sfloat,
+        },
+    });
 
   deferredLightingPipeline = {};
   deferredLightingPipeline = etna::get_context().getPipelineManager().createGraphicsPipeline(
