@@ -20,6 +20,8 @@ App::App()
   renderer->initFrameDelivery(std::move(surface), [this]() { return mainWindow->getResolution(); });
 
   mainCam.lookAt({0, 10, 10}, {0, 0, 0}, {0, 1, 0});
+  mainCam.zFar = 30.0f;
+  mainCam.zNear = 0.05f;
 
   renderer->loadScene(GRAPHICS_COURSE_RESOURCES_ROOT "/scenes/low_poly_dark_town/scene_baked.gltf");
 }

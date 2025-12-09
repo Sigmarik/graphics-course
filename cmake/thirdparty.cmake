@@ -12,6 +12,13 @@ CPMAddPackage(
     "GLFW_BULID_DOCS OFF"
 )
 
+# OpenGL Mathematics
+CPMAddPackage(
+        NAME glm
+        GITHUB_REPOSITORY icaven/glm
+        GIT_TAG master
+)
+
 # Cross-platform 3D graphics
 find_package(Vulkan 1.4.300 REQUIRED)
 
@@ -54,7 +61,7 @@ CPMAddPackage(
 CPMAddPackage(
   NAME etna
   GITHUB_REPOSITORY AlexandrShcherbakov/etna
-  VERSION 1.12.0
+  VERSION 1.13.1
 )
 
 # Type-erased function containers that actually work
