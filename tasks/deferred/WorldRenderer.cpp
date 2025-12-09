@@ -1,7 +1,5 @@
 #include "WorldRenderer.hpp"
 
-#include "../../../../../../../../../../CPMCache/etna/60a4276a050dc28adf2f07e234c2c2f126c33dc9/etna/source/StateTracking.hpp"
-
 #include <etna/GlobalContext.hpp>
 #include <etna/PipelineManager.hpp>
 #include <etna/RenderTargetStates.hpp>
@@ -332,7 +330,7 @@ void WorldRenderer::assignLightClusters(vk::CommandBuffer cmd_buf)
 {
   deferredPushConst2M.numberOfElements = pointLightCount;
 
-  etna::get_context().getResourceTracker().setBufferState(
+  etna::set_state(
     cmd_buf,
     deferredClusters.get(),
     vk::PipelineStageFlagBits2::eComputeShader,
@@ -504,7 +502,7 @@ void WorldRenderer::applyLighting(
       vk::ImageAspectFlagBits::eColor);
   });
 
-  etna::get_context().getResourceTracker().setBufferState(
+  etna::set_state(
     cmd_buf,
     deferredClusters.get(),
     vk::PipelineStageFlagBits2::eFragmentShader,
