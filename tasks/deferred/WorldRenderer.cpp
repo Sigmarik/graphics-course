@@ -1,5 +1,7 @@
 #include "WorldRenderer.hpp"
 
+#include "../../../../../../../../../../CPMCache/etna/60a4276a050dc28adf2f07e234c2c2f126c33dc9/etna/source/StateTracking.hpp"
+
 #include <etna/GlobalContext.hpp>
 #include <etna/PipelineManager.hpp>
 #include <etna/RenderTargetStates.hpp>
@@ -33,6 +35,7 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
   initLights();
   initDecals();
   initGBuffers();
+  initClusters();
 }
 
 static float random_float(float min, float max)
@@ -61,6 +64,7 @@ void WorldRenderer::loadShaders()
   etna::create_program(
     "decal_program",
     {DEFERRED_SHADERS_ROOT "decals.frag.spv", DEFERRED_SHADERS_ROOT "fullscreen.vert.spv"});
+  etna::create_program("cluster_designation", {DEFERRED_SHADERS_ROOT "cluster_assign.comp.spv"});
 }
 
 void WorldRenderer::setupPipelines(vk::Format swapchain_format)
@@ -165,6 +169,10 @@ void WorldRenderer::setupPipelines(vk::Format swapchain_format)
             .depthAttachmentFormat = vk::Format::eD32Sfloat,
           },
       });
+
+  lightClusterAssignmentPipeline = {};
+  lightClusterAssignmentPipeline =
+    etna::get_context().getPipelineManager().createComputePipeline("cluster_designation", {});
 }
 
 void WorldRenderer::debugInput(const Keyboard&) {}
@@ -306,6 +314,69 @@ void WorldRenderer::initGBuffers()
   }
 }
 
+void WorldRenderer::initClusters()
+{
+  auto& ctx = etna::get_context();
+
+  deferredClusters = ctx.createBuffer(etna::Buffer::CreateInfo{
+    .size = DEFERRED_CLUSTER_COUNT_LATERAL * DEFERRED_CLUSTER_COUNT_LATERAL *
+      DEFERRED_CLUSTER_COUNT_VERTICAL * sizeof(DeferredCluster),
+    .bufferUsage = vk::BufferUsageFlagBits::eStorageBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    .name = "deferredClusterBuffer",
+  });
+  deferredClusters.map();
+}
+
+void WorldRenderer::assignLightClusters(vk::CommandBuffer cmd_buf)
+{
+  deferredPushConst2M.numberOfElements = pointLightCount;
+
+  etna::get_context().getResourceTracker().setBufferState(
+    cmd_buf,
+    deferredClusters.get(),
+    vk::PipelineStageFlagBits2::eComputeShader,
+    vk::AccessFlagBits2::eShaderWrite);
+  etna::flush_barriers(cmd_buf);
+
+  {
+    auto programInfo = etna::get_shader_program("cluster_designation");
+    const auto set = etna::create_descriptor_set(
+      programInfo.getDescriptorLayoutId(0),
+      cmd_buf,
+      {
+        etna::Binding{0, deferredClusters.genBinding()},
+        etna::Binding{1, pointLights.genBinding()},
+      });
+
+    vk::DescriptorSet vkSet = set.getVkSet();
+
+    cmd_buf.bindPipeline(
+      vk::PipelineBindPoint::eCompute, lightClusterAssignmentPipeline.getVkPipeline());
+    cmd_buf.bindDescriptorSets(
+      vk::PipelineBindPoint::eCompute,
+      lightClusterAssignmentPipeline.getVkPipelineLayout(),
+      0,
+      1,
+      &vkSet,
+      0,
+      nullptr);
+
+    cmd_buf.pushConstants(
+      lightClusterAssignmentPipeline.getVkPipelineLayout(),
+      vk::ShaderStageFlagBits::eCompute,
+      0,
+      sizeof(deferredPushConst2M),
+      &deferredPushConst2M);
+    etna::flush_barriers(cmd_buf);
+
+    cmd_buf.dispatch(
+      (DEFERRED_CLUSTER_COUNT_LATERAL + 9) / 10,
+      (DEFERRED_CLUSTER_COUNT_LATERAL + 9) / 10,
+      (DEFERRED_CLUSTER_COUNT_VERTICAL + 9) / 10);
+  }
+}
+
 void WorldRenderer::renderToGBuffers(vk::CommandBuffer cmd_buf)
 {
   geomBuffers.get().forEachBuffer([&](etna::Image& image) {
@@ -433,6 +504,14 @@ void WorldRenderer::applyLighting(
       vk::ImageAspectFlagBits::eColor);
   });
 
+  etna::get_context().getResourceTracker().setBufferState(
+    cmd_buf,
+    deferredClusters.get(),
+    vk::PipelineStageFlagBits2::eFragmentShader,
+    vk::AccessFlagBits2::eShaderRead);
+
+  etna::flush_barriers(cmd_buf);
+
   {
     ETNA_PROFILE_GPU(cmd_buf, renderForward);
 
@@ -450,16 +529,17 @@ void WorldRenderer::applyLighting(
       cmd_buf,
       {
         etna::Binding{0, pointLights.genBinding()},
+        etna::Binding{1, deferredClusters.genBinding()},
         etna::Binding{
-          1,
+          2,
           geomBuffers.get().albedo.genBinding(
             sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)},
         etna::Binding{
-          2,
+          3,
           geomBuffers.get().normal.genBinding(
             sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)},
         etna::Binding{
-          3,
+          4,
           geomBuffers.get().depth.genBinding(
             sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)},
       });
@@ -492,12 +572,12 @@ std::vector<WorldRenderer::PointLight> WorldRenderer::genPointLights()
 {
   std::vector<PointLight> result;
 
-  for (unsigned lightIdx = 0; lightIdx < 100; ++lightIdx)
+  for (unsigned lightIdx = 0; lightIdx < 10000; ++lightIdx)
   {
     PointLight light;
     light.position =
       glm::vec3(random_float(-10.0f, 10.0f), random_float(0.4f, 3.0f), random_float(-10.0f, 10.0f));
-    light.radius = random_float(2.0f, 5.0f);
+    light.radius = random_float(0.05f, 1.0f);
     light.color =
       glm::vec3(random_float(0.2f, 1.0f), random_float(0.2f, 1.0f), random_float(0.2f, 1.0f));
     result.push_back(light);
@@ -515,6 +595,7 @@ void WorldRenderer::renderWorld(
   deferredPushConst2M.invProj = worldInvProj;
   deferredPushConst2M.view = worldView;
 
+  assignLightClusters(cmd_buf);
   renderToGBuffers(cmd_buf);
   applyDecals(cmd_buf);
   applyLighting(cmd_buf, target_image, target_image_view);

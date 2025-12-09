@@ -11,6 +11,7 @@
 #include "FrameMachine.hpp"
 
 #include "FramePacket.hpp"
+#include "etna/ComputePipeline.hpp"
 
 
 class WorldRenderer
@@ -37,7 +38,9 @@ private:
   void initLights();
   void initDecals();
   void initGBuffers();
+  void initClusters();
 
+  void assignLightClusters(vk::CommandBuffer cmd_buf);
   void renderToGBuffers(vk::CommandBuffer cmd_buf);
   void applyDecals(vk::CommandBuffer cmd_buf);
   void applyLighting(
@@ -92,7 +95,6 @@ private:
     unsigned numberOfElements;
   } deferredPushConst2M;
 
-
   struct Decal
   {
     glm::vec3 position = glm::vec3(0.0, 0.0, 0.0);
@@ -106,6 +108,17 @@ private:
   etna::Buffer decals;
   unsigned decalCount;
 
+  static constexpr unsigned DEFERRED_CLUSTER_COUNT_LATERAL = 30;
+  static constexpr unsigned DEFERRED_CLUSTER_COUNT_VERTICAL = 50;
+
+  struct DeferredCluster
+  {
+    uint32_t count;
+    static constexpr unsigned ELEMENTS_PER_CLUSTER = 100;
+    uint32_t elementIndices[ELEMENTS_PER_CLUSTER] = {};
+  };
+  etna::Buffer deferredClusters;
+
   glm::mat4x4 worldViewProj;
   glm::mat4x4 worldView;
   glm::mat4x4 worldInvProj;
@@ -114,6 +127,8 @@ private:
   etna::GraphicsPipeline staticMeshPipeline{};
   etna::GraphicsPipeline deferredLightingPipeline{};
   etna::GraphicsPipeline decalPipeline{};
+
+  etna::ComputePipeline lightClusterAssignmentPipeline{};
 
   glm::uvec2 resolution;
 

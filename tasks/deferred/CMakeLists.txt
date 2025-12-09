@@ -15,4 +15,5 @@ target_add_shaders(deferred
   shaders/fullscreen.vert
   shaders/deferred_point_lights.frag
   shaders/decals.frag
+  shaders/cluster_assign.comp
 )
