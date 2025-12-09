@@ -8,6 +8,7 @@
 
 #include "scene/SceneManager.hpp"
 #include "wsi/Keyboard.hpp"
+#include "FrameMachine.hpp"
 
 #include "FramePacket.hpp"
 
@@ -34,9 +35,11 @@ private:
     vk::CommandBuffer cmd_buf, const glm::mat4x4& glob_tm, vk::PipelineLayout pipeline_layout);
 
   void initLights();
+  void initDecals();
   void initGBuffers();
 
   void renderToGBuffers(vk::CommandBuffer cmd_buf);
+  void applyDecals(vk::CommandBuffer cmd_buf);
   void applyLighting(
     vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
 
@@ -57,15 +60,24 @@ private:
   etna::Buffer constants;
 
   etna::Buffer pointLights;
+  unsigned pointLightCount;
 
   struct GBuffers
   {
     etna::Image albedo;
     etna::Image normal;
     etna::Image depth;
+
+    template <class F>
+    void forEachBuffer(F&& functor)
+    {
+      functor(albedo);
+      functor(normal);
+      functor(depth);
+    }
   };
 
-  GBuffers geomBuffers;
+  FrameMachine<GBuffers, 2> geomBuffers;
 
   struct PushConstants
   {
@@ -77,8 +89,22 @@ private:
   {
     glm::mat4x4 invProj;
     glm::mat4x4 view;
-    unsigned numberOfLights;
+    unsigned numberOfElements;
   } deferredPushConst2M;
+
+
+  struct Decal
+  {
+    glm::vec3 position = glm::vec3(0.0, 0.0, 0.0);
+    float _padding0 = 0.0f;
+    glm::vec3 direction = glm::vec3(0.0, -1.0, 0.0);
+    float size = 1.0;
+    float orientation = 0.0;
+    float depth = 1.0;
+    float _padding1[2];
+  };
+  etna::Buffer decals;
+  unsigned decalCount;
 
   glm::mat4x4 worldViewProj;
   glm::mat4x4 worldView;
@@ -87,6 +113,7 @@ private:
 
   etna::GraphicsPipeline staticMeshPipeline{};
   etna::GraphicsPipeline deferredLightingPipeline{};
+  etna::GraphicsPipeline decalPipeline{};
 
   glm::uvec2 resolution;
 

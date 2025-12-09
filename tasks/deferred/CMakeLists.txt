@@ -14,4 +14,5 @@ target_add_shaders(deferred
   shaders/static_mesh.vert
   shaders/fullscreen.vert
   shaders/deferred_point_lights.frag
+  shaders/decals.frag
 )
