@@ -302,9 +302,27 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         // NOTE: it's faster to do a template here with specializations for all combinations than to
         // do ifs at runtime. Also, SIMD should be used. Try implementing this!
         if (hasNormals)
-          std::memcpy(&normal, ptrs[2], sizeof(normal));
+        {
+          if (accessors[2]->componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+            std::memcpy(&normal, ptrs[2], sizeof(normal));
+          if (accessors[2]->componentType == TINYGLTF_COMPONENT_TYPE_BYTE)
+          {
+            normal.x = static_cast<float>(static_cast<int8_t>(*(ptrs[2] + 0))) / 127.0f;
+            normal.y = static_cast<float>(static_cast<int8_t>(*(ptrs[2] + 1))) / 127.0f;
+            normal.z = static_cast<float>(static_cast<int8_t>(*(ptrs[2] + 2))) / 127.0f;
+          }
+        }
         if (hasTangents)
-          std::memcpy(&tangent, ptrs[3], sizeof(tangent));
+        {
+          if (accessors[3]->componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+            std::memcpy(&tangent, ptrs[3], sizeof(tangent));
+          if (accessors[3]->componentType == TINYGLTF_COMPONENT_TYPE_BYTE)
+          {
+            tangent.x = static_cast<float>(static_cast<int8_t>(*(ptrs[3] + 0))) / 127.0f;
+            tangent.y = static_cast<float>(static_cast<int8_t>(*(ptrs[3] + 1))) / 127.0f;
+            tangent.z = static_cast<float>(static_cast<int8_t>(*(ptrs[3] + 2))) / 127.0f;
+          }
+        }
         if (hasTexcoord)
           std::memcpy(&texcoord, ptrs[4], sizeof(texcoord));
 
@@ -349,6 +367,44 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
 
   return result;
 }
+SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
+  const tinygltf::Model& model) const
+{
+  assert(model.buffers.size() == 1);
+  assert(model.bufferViews.size() == 2);
+
+  ProcessedCompressedMeshes result;
+  result.indexBuffer = reinterpret_cast<const uint32_t*>(&model.buffers[0].data.front());
+  result.indexCount = model.bufferViews[0].byteLength / sizeof(uint32_t);
+
+  result.vertexBuffer = &model.buffers[0].data.front() + model.bufferViews[1].byteOffset;
+  result.vertexBufferSize = model.bufferViews[1].byteLength;
+
+  assert(
+    model.bufferViews[1].byteOffset + model.bufferViews[1].byteLength ==
+    model.buffers[0].data.size());
+
+  for (const auto& mesh : model.meshes)
+  {
+    Mesh newMesh;
+    newMesh.firstRelem = static_cast<uint32_t>(result.relems.size());
+    newMesh.relemCount = static_cast<uint32_t>(mesh.primitives.size());
+    result.meshes.push_back(newMesh);
+
+    for (const auto& prim : mesh.primitives)
+    {
+      RenderElement relem;
+      relem.indexCount = static_cast<uint32_t>(model.accessors.at(prim.indices).count);
+      relem.indexOffset =
+        static_cast<uint32_t>(model.accessors.at(prim.indices).byteOffset / sizeof(uint32_t));
+      relem.vertexOffset =
+        static_cast<uint32_t>(model.accessors.at(prim.attributes.at("POSITION")).byteOffset / 32);
+      result.relems.push_back(relem);
+    }
+  }
+
+  return result;
+}
 
 void SceneManager::uploadData(
   std::span<const Vertex> vertices, std::span<const std::uint32_t> indices)
@@ -368,6 +424,40 @@ void SceneManager::uploadData(
   });
 
   transferHelper.uploadBuffer<Vertex>(*oneShotCommands, unifiedVbuf, 0, vertices);
+  transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
+}
+void SceneManager::uploadCompressedData(
+  const uint32_t* index_buffer,
+  size_t index_count,
+  const unsigned char* vertex_buffer,
+  size_t vertex_buffer_size)
+{
+  unifiedVbuf = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = vertex_buffer_size,
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+    .name = "unifiedVbuf",
+  });
+
+  unifiedIbuf = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = index_count * sizeof(uint32_t),
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+    .name = "unifiedIbuf",
+  });
+
+  std::vector<uint32_t> indices(index_count);
+  std::vector<unsigned char> vertices(vertex_buffer_size);
+  for (size_t i = 0; i < index_count; ++i)
+  {
+    indices.at(i) = index_buffer[i];
+  }
+  for (size_t i = 0; i < vertex_buffer_size; ++i)
+  {
+    vertices.at(i) = vertex_buffer[i];
+  }
+
+  transferHelper.uploadBuffer<unsigned char>(*oneShotCommands, unifiedVbuf, 0, vertices);
   transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
 }
 
@@ -396,6 +486,26 @@ void SceneManager::selectScene(std::filesystem::path path)
   uploadData(verts, inds);
 }
 
+void SceneManager::selectCompressedScene(std::filesystem::path path)
+{
+  auto maybeModel = loadModel(path);
+  if (!maybeModel.has_value())
+    return;
+
+  auto model = std::move(*maybeModel);
+
+  auto [instMats, instMeshes] = processInstances(model);
+  instanceMatrices = std::move(instMats);
+  instanceMeshes = std::move(instMeshes);
+
+  auto [inds, indCnt, vertBuf, vertBufSize, relems, meshs] = processCompressedMeshes(model);
+
+  renderElements = std::move(relems);
+  meshes = std::move(meshs);
+
+  uploadCompressedData(inds, indCnt, vertBuf, vertBufSize);
+}
+
 etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription()
 {
   return etna::VertexByteStreamFormatDescription{
@@ -408,6 +518,30 @@ etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription
       etna::VertexByteStreamFormatDescription::Attribute{
         .format = vk::Format::eR32G32B32A32Sfloat,
         .offset = sizeof(glm::vec4),
+      },
+    }};
+}
+
+etna::VertexByteStreamFormatDescription SceneManager::getCompressedVertexFormatDescription()
+{
+  return etna::VertexByteStreamFormatDescription{
+    .stride = sizeof(Vertex),
+    .attributes = {
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32B32Sfloat,
+        .offset = 0,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR8G8B8Sint,
+        .offset = 12,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = 16,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR8G8B8Sint,
+        .offset = 24,
       },
     }};
 }
