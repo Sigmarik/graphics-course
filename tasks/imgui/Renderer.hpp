@@ -5,6 +5,8 @@
 #include <glm/glm.hpp>
 #include <function2/function2.hpp>
 
+#include <gui/ImGuiRenderer.hpp>
+
 #include "wsi/Keyboard.hpp"
 
 #include "FramePacket.hpp"
@@ -36,6 +38,8 @@ private:
 
   glm::uvec2 resolution;
   bool useVsync = true;
+
+  std::unique_ptr<ImGuiRenderer> guiRenderer;
 
   std::unique_ptr<WorldRenderer> worldRenderer;
 };

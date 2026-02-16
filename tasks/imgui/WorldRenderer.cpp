@@ -6,6 +6,8 @@
 #include <etna/Profiling.hpp>
 #include <glm/ext.hpp>
 
+#include <imgui.h>
+
 
 WorldRenderer::WorldRenderer()
   : sceneMgr{std::make_unique<SceneManager>()}
@@ -188,6 +190,21 @@ void WorldRenderer::update(const FramePacket& packet)
   }
 }
 
+void WorldRenderer::drawGui()
+{
+  ImGui::Begin("Simple render settings");
+
+  int value = currentPointLightCount;
+  ImGui::SliderInt("Number of lights", &value, 0, pointLightCount);
+  currentPointLightCount = value;
+
+  ImGui::Text(
+    "Application average %.3f ms/frame (%.1f FPS)",
+    1000.0f / ImGui::GetIO().Framerate,
+    ImGui::GetIO().Framerate);
+  ImGui::End();
+}
+
 void WorldRenderer::renderScene(
   vk::CommandBuffer cmd_buf, const glm::mat4x4& glob_tm, vk::PipelineLayout pipeline_layout)
 {
@@ -230,6 +247,7 @@ void WorldRenderer::initLights()
   std::vector<PointLight> lights = genPointLights();
 
   pointLightCount = static_cast<unsigned>(lights.size());
+  currentPointLightCount = pointLightCount;
 
   pointLights = ctx.createBuffer(etna::Buffer::CreateInfo{
     .size = lights.size() * sizeof(PointLight),
@@ -328,7 +346,7 @@ void WorldRenderer::initClusters()
 
 void WorldRenderer::assignLightClusters(vk::CommandBuffer cmd_buf)
 {
-  deferredPushConst2M.numberOfElements = pointLightCount;
+  deferredPushConst2M.numberOfElements = currentPointLightCount;
 
   etna::set_state(
     cmd_buf,
@@ -513,7 +531,7 @@ void WorldRenderer::applyLighting(
   {
     ETNA_PROFILE_GPU(cmd_buf, renderForward);
 
-    deferredPushConst2M.numberOfElements = pointLightCount;
+    deferredPushConst2M.numberOfElements = currentPointLightCount;
 
     etna::RenderTargetState renderTargets(
       cmd_buf,

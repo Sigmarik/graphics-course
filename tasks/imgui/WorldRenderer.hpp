@@ -63,6 +63,7 @@ private:
   etna::Buffer constants;
 
   etna::Buffer pointLights;
+  unsigned currentPointLightCount;
   unsigned pointLightCount;
 
   struct GBuffers
@@ -106,6 +107,7 @@ private:
     float _padding1[2];
   };
   etna::Buffer decals;
+  unsigned currentDecalCount;
   unsigned decalCount;
 
   static constexpr unsigned DEFERRED_CLUSTER_COUNT_LATERAL = 30;
