@@ -1,7 +1,9 @@
 #include <spaghetti_renderer/spaghetti.h>
 
+#include "Scene.h"
+
 int main()
 {
-  spg::App app;
-  app.run();
+  Scene scene;
+  scene.run();
 }

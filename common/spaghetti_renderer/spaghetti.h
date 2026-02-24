@@ -11,8 +11,12 @@ class App
 {
 public:
   App();
+  virtual ~App() = default;
 
   void run();
+
+protected:
+  virtual void render() = 0;
 
 private:
   void processInput(float dt);
