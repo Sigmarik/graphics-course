@@ -5,7 +5,7 @@ struct ShaderToyParams
   uint32_t resolutionX = 0;
   uint32_t resolutionY = 0;
   float mouseX = 0;
-  float mouseY = 0;
+  float mouseY = 800;
   float time = 0;
 };
 
@@ -14,6 +14,10 @@ void Scene::initialize()
   ballTexture.name("ball texture")
     .useColorAttachment().useSampled();
   ballTexture.init();
+
+  skyTexture.name("sky texture")
+    .file(TEXTURES_ROOT "cloudy_sky.png").useSampled();
+  skyTexture.init(&getCmdBuf());
 
   intermediate.shaderPath(SPAGHETTI_TEST_SHADERS_ROOT "intermediate.frag.spv")
     .addColorAttachment(ballTexture.getFormat());
@@ -30,8 +34,6 @@ void Scene::render()
 
   params.resolutionX = getResolution().x;
   params.resolutionY = getResolution().y;
-  params.mouseX = 0;
-  params.mouseY = 0;
 
   intermediate.dispatch(getCmdBuf())
     .push(params)
@@ -39,6 +41,6 @@ void Scene::render()
 
   toy.dispatch(getCmdBuf())
     .bind(0, ballTexture, getDefaultSampler())
-    .bind(1, ballTexture, getDefaultSampler())
+    .bind(1, skyTexture, getDefaultSampler())
     .attach(getScreenAttachment(), getResolution());
 }

@@ -38,7 +38,9 @@ public:
   Texture& name(const std::string& value) { assert(!m_inited); m_name = value; return *this; }
   Texture& format(vk::Format value) { assert(!m_inited); m_format = value; return *this; }
 
-  void init();
+  Texture& file(const std::string& path);
+
+  void init(vk::CommandBuffer* cmdBuf = nullptr);
 
   void prepareForShaderRead(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage = vk::PipelineStageFlagBits2::eFragmentShader);
   void prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput);
@@ -59,6 +61,8 @@ private:
   vk::ImageUsageFlags m_flags;
   vk::Format m_format = vk::Format::eB8G8R8A8Srgb;
   std::string m_name = "";
+
+  unsigned char* m_bytes = nullptr;
 
   etna::Image m_etnaImage;
   std::optional<vk::ImageView> m_viewOverride;

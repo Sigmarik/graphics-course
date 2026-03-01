@@ -36,6 +36,8 @@ public:
 
   etna::Sampler& getSampler() const { return worldRenderer->getSampler(); }
 
+  etna::PerFrameCmdMgr& getCmdManager() const { return *commandManager; }
+
 private:
   ResolutionProvider resolutionProvider;
 

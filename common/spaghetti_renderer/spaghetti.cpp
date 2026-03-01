@@ -32,7 +32,11 @@ App::App()
 
 void App::run()
 {
-  initialize();
+  {
+    auto temporaryCmdBuf = renderer->getCmdManager().acquireNext();
+    currentCmdBuf = &temporaryCmdBuf;
+    initialize();
+  }
 
   double lastTime = windowing.getTime();
   while (!mainWindow->isBeingClosed())

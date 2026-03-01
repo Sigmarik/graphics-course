@@ -10,3 +10,6 @@ target_add_shaders(spaghetti_test
         shaders/toy.frag
         shaders/intermediate.frag
 )
+
+add_compile_definitions(spaghetti_test PRIVATE
+        TEXTURES_ROOT="${PROJECT_SOURCE_DIR}/resources/textures/")

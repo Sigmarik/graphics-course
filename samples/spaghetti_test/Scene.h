@@ -15,4 +15,5 @@ private:
   spg::FragmentOnlyShader intermediate{};
   spg::FragmentOnlyShader toy{};
   spg::Texture ballTexture{};
+  spg::Texture skyTexture{};
 };
