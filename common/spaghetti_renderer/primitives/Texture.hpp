@@ -13,7 +13,7 @@ class Texture
 {
 public:
   Texture() = default;
-  Texture(etna::Image image);
+  explicit Texture(etna::Image image);
   Texture(etna::Image image, vk::ImageView fixedView);
 
   Texture(const Texture&) = delete;
@@ -51,6 +51,8 @@ public:
   }
 
   etna::Binding getBinding(unsigned bindingId, const etna::Sampler& sampler);
+
+  vk::Format getFormat() { return m_inited ? m_format : m_etnaImage.getFormat(); }
 
 private:
   unsigned m_width = 256, m_height = 256;

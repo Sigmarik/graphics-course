@@ -26,8 +26,8 @@ void Texture::init()
   m_etnaImage = ctx.createImage(etna::Image::CreateInfo{
     .extent = vk::Extent3D{m_width, m_height, 1},
     .name = name,
-    .format = vk::Format::eD32Sfloat,
-    .imageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+    .format = m_format,
+    .imageUsage = m_flags,
   });
 }
 
@@ -39,7 +39,7 @@ void Texture::prepareForShaderRead(vk::CommandBuffer& cmd_buf, vk::PipelineStage
       cmd_buf,
       raw().get(),
       stage,
-      vk::AccessFlagBits2::eShaderRead,
+      vk::AccessFlagBits2::eColorAttachmentRead,
       vk::ImageLayout::eShaderReadOnlyOptimal,
       vk::ImageAspectFlagBits::eColor);
 }

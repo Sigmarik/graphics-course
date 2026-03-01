@@ -34,6 +34,8 @@ public:
 
   etna::Window* getWindow() const { return window.get(); }
 
+  etna::Sampler& getSampler() const { return worldRenderer->getSampler(); }
+
 private:
   ResolutionProvider resolutionProvider;
 

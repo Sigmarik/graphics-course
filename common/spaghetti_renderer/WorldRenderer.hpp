@@ -25,6 +25,9 @@ public:
   void renderWorld(App& app,
     vk::CommandBuffer cmd_buf, vk::Image target_image, vk::ImageView target_image_view);
 
+  etna::Sampler& getSampler() { return sampler; }
+  const etna::Sampler& getSampler() const { return sampler; }
+
 private:
   etna::Image mainViewDepth;
   glm::uvec2 resolution;

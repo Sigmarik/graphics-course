@@ -41,6 +41,8 @@ public:
 
   glm::uvec2 getResolution() const { return mainWindow->getResolution(); }
 
+  etna::Sampler& getDefaultSampler() const { return renderer->getSampler(); }
+
 protected:
   virtual void renderGui() {}
   virtual void render() = 0;

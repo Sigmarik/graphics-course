@@ -13,7 +13,7 @@ FragmentOnlyShader::FragmentOnlyShader(etna::GraphicsPipeline pipeline)
 
 FragmentOnlyShader::Dispatch::~Dispatch()
 {
-  if (!bindings.empty()) etna::flush_barriers(*cmdBuf);
+  if (!bindings.empty() || !attachments.empty()) etna::flush_barriers(*cmdBuf);
 
   ETNA_PROFILE_GPU(*cmdBuf, renderFullscreenFragment);
 
@@ -55,6 +55,7 @@ FragmentOnlyShader::Dispatch::~Dispatch()
 
 FragmentOnlyShader::Dispatch& FragmentOnlyShader::Dispatch::attach(Texture& texture)
 {
+  texture.prepareForShaderWrite(*cmdBuf);
   attachments.push_back({.image = texture.raw().get(), .view = texture.raw().getView({})});
   resolutionX = texture.raw().getExtent().width;
   resolutionY = texture.raw().getExtent().height;
@@ -78,6 +79,7 @@ FragmentOnlyShader::Dispatch& FragmentOnlyShader::Dispatch::attachAsDepth(Textur
 FragmentOnlyShader::Dispatch& FragmentOnlyShader::Dispatch::bind(unsigned id, Texture& texture, etna::Sampler& sampler)
 {
   bindings.push_back(texture.getBinding(id, sampler));
+  texture.prepareForShaderRead(*cmdBuf);
   return *this;
 }
 

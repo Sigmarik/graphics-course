@@ -12,6 +12,7 @@ protected:
   void render() override;
 
 private:
-  spg::FragmentOnlyShader fullRed;
-  spg::Buffer colorBuffer;
+  spg::FragmentOnlyShader intermediate{};
+  spg::FragmentOnlyShader toy{};
+  spg::Texture ballTexture{};
 };
