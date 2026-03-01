@@ -17,6 +17,8 @@ using ResolutionProvider = fu2::unique_function<glm::uvec2() const>;
 
 namespace spg
 {
+class App;
+
 class Renderer
 {
 public:
@@ -25,12 +27,12 @@ public:
 
   void initVulkan(std::span<const char*> instance_extensions);
   void initFrameDelivery(vk::UniqueSurfaceKHR surface, ResolutionProvider res_provider);
-  void recreateSwapchain(glm::uvec2 res);
-  void loadScene(std::filesystem::path path);
 
   void debugInput(const Keyboard& kb);
-  void update(const FramePacket& packet);
-  void drawFrame();
+  void drawGui(App& app);
+  void drawFrame(App& app);
+
+  etna::Window* getWindow() const { return window.get(); }
 
 private:
   ResolutionProvider resolutionProvider;

@@ -1,4 +1,4 @@
-#include "spaghetti.h"
+#include "spaghetti.hpp"
 
 #include <tracy/Tracy.hpp>
 
@@ -28,12 +28,12 @@ App::App()
   mainCam.lookAt({0, 10, 10}, {0, 0, 0}, {0, 1, 0});
   mainCam.zFar = 30.0f;
   mainCam.zNear = 0.05f;
-
-  renderer->loadScene(GRAPHICS_COURSE_RESOURCES_ROOT "/scenes/low_poly_dark_town/scene_baked.gltf");
 }
 
 void App::run()
 {
+  initialize();
+
   double lastTime = windowing.getTime();
   while (!mainWindow->isBeingClosed())
   {
@@ -49,6 +49,8 @@ void App::run()
 
     FrameMark;
   }
+
+  std::ignore = etna::get_context().getDevice().waitIdle();
 }
 
 void App::processInput(float dt)
@@ -77,11 +79,13 @@ void App::drawFrame()
 {
   ZoneScoped;
 
-  renderer->update(FramePacket{
-    .mainCam = mainCam,
-    .currentTime = static_cast<float>(windowing.getTime()),
-  });
-  renderer->drawFrame();
+  const float aspect = float(mainWindow->getResolution().x) / float(mainWindow->getResolution().y);
+  worldView = mainCam.viewTm();
+  worldInvProj = glm::inverse(mainCam.projTm(aspect));
+  worldViewProj = mainCam.projTm(aspect) * mainCam.viewTm();
+
+  renderer->drawGui(*this);
+  renderer->drawFrame(*this);
 }
 
 void App::moveCam(Camera& cam, const Keyboard& kb, float dt)

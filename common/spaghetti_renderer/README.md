@@ -1,7 +1,7 @@
 # WARNING
 
-For those with prying eyes this is NOT EVEN AN ATTEMPT to create a comprehensive rendering engine, it is just a
-framework for easier demo development that's it.
+For those looking to take some point off because of additional material this is NOT EVEN AN ATTEMPT to create a comprehensive rendering engine.
+It is just a framework for easier demo development and that's it.
 
 It can be used to create a scene with a static array of objects, it CANNOT be used to create a scene with an arbitrary number of objects which is usually a must for graphics engines.
 

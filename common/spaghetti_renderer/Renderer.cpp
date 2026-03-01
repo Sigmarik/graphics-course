@@ -1,9 +1,10 @@
 #include "Renderer.hpp"
 
+#include "spaghetti.hpp"
+
 #include <etna/GlobalContext.hpp>
 #include <etna/Etna.hpp>
 #include <etna/RenderTargetStates.hpp>
-#include <etna/PipelineManager.hpp>
 #include <etna/Profiling.hpp>
 #include <imgui.h>
 
@@ -60,16 +61,9 @@ void Renderer::initFrameDelivery(vk::UniqueSurfaceKHR a_surface, ResolutionProvi
 
   worldRenderer = std::make_unique<WorldRenderer>();
 
-  worldRenderer->allocateResources(resolution);
-  worldRenderer->loadShaders();
-  worldRenderer->setupPipelines(window->getCurrentFormat());
+  worldRenderer->allocateOwnResources(resolution);
 
   guiRenderer = std::make_unique<ImGuiRenderer>(window->getCurrentFormat());
-}
-
-void Renderer::loadScene(std::filesystem::path path)
-{
-  worldRenderer->loadScene(path);
 }
 
 void Renderer::debugInput(const Keyboard& kb)
@@ -91,22 +85,18 @@ void Renderer::debugInput(const Keyboard& kb)
   }
 }
 
-void Renderer::update(const FramePacket& packet)
-{
-  worldRenderer->update(packet);
-}
-
-void Renderer::drawFrame()
+void Renderer::drawGui(App& app)
 {
   ZoneScoped;
+  guiRenderer->nextFrame();
+  ImGui::NewFrame();
+  worldRenderer->drawGui(app);
+  ImGui::Render();
+}
 
-  {
-    ZoneScopedN("drawGui");
-    guiRenderer->nextFrame();
-    ImGui::NewFrame();
-    worldRenderer->drawGui();
-    ImGui::Render();
-  }
+void Renderer::drawFrame(App& app)
+{
+  ZoneScoped;
 
   auto currentCmdBuf = commandManager->acquireNext();
 
@@ -122,7 +112,7 @@ void Renderer::drawFrame()
     {
       ETNA_PROFILE_GPU(currentCmdBuf, renderFrame);
 
-      worldRenderer->renderWorld(currentCmdBuf, image, view);
+      worldRenderer->renderWorld(app, currentCmdBuf, image, view);
 
       {
         ImDrawData* pDrawData = ImGui::GetDrawData();

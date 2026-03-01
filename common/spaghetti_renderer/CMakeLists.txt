@@ -3,6 +3,9 @@ add_library(spaghetti_renderer
         spaghetti.cpp
         Renderer.cpp
         WorldRenderer.cpp
+        primitives/Texture.cpp
+        primitives/Buffer.cpp
+        primitives/FragmentOnlyShader.cpp
 )
 
 target_include_directories(spaghetti_renderer PUBLIC ..)

@@ -1,4 +1,4 @@
-#include <spaghetti_renderer/spaghetti.h>
+#include <spaghetti_renderer/spaghetti.hpp>
 
 #include "Scene.h"
 
