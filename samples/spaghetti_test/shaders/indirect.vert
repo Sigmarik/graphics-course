@@ -14,7 +14,7 @@ layout(push_constant) uniform params_t
 struct InstanceInfo
 {
     mat4 model;
-//    uint texIdx;
+    uint texIdx;
 };
 
 layout(std140, set = 0, binding = 0) readonly buffer InstanceInfoBuffer
@@ -49,8 +49,7 @@ void main(void)
     vOut.wNorm  = normalize(mat3(transpose(inverse(model))) * wNorm.xyz);
     vOut.wTangent = normalize(mat3(transpose(inverse(model))) * wTang.xyz);
     vOut.texCoord = vUv;
-//    vOut.texId = instance.texIdx;
-    vOut.texId = 0;
+    vOut.texId = instance.texIdx;
 
     vOut.wClipPos = params.mProjView * vec4(vOut.wPos, 1.0);
     gl_Position = vOut.wClipPos;

@@ -3,7 +3,8 @@
 struct InstanceInfo
 {
   glm::mat4 transform;
-  // uint32_t textureIdx;
+  uint32_t textureIdx;
+  uint32_t _pad[3];
 };
 
 void Scene::initialize()
@@ -45,8 +46,7 @@ void Scene::initialize()
         std::ignore = instanceIdx;
         InstanceInfo inst;
         inst.transform = instanceMatrices[instanceIdx];
-        // inst.transform = glm::mat4(1.0f);
-        // inst.textureIdx = relem.albedoTextureIndex;
+        inst.textureIdx = relem.albedoTextureIndex;
         instances.emplace_back(inst);
       }
     }
