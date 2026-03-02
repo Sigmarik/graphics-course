@@ -26,6 +26,16 @@ public:
   Buffer& memGpu2Cpu() { assert(!m_inited); m_memUsage = VMA_MEMORY_USAGE_GPU_TO_CPU; return *this; }
   Buffer& name(std::string value) { assert(!m_inited); m_name = value; return *this; }
 
+  template <class T>
+  void initAndCopy(const std::vector<T>& data)
+  {
+    if (m_usage == vk::BufferUsageFlags{}) useStorage();
+    memCpu2Gpu();
+    size(data.size() * sizeof(T));
+    init();
+    copyFrom(data.front());
+  }
+
   void init();
 
   etna::Buffer& raw() { return m_etnaBuffer; }
@@ -59,10 +69,10 @@ private:
   bool m_inited = false;
 
   size_t m_size = 0;
-  vk::BufferUsageFlags m_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+  vk::BufferUsageFlags m_usage{};
   VmaMemoryUsage m_memUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
   std::string m_name = "";
 
-  etna::Buffer m_etnaBuffer;
+  etna::Buffer m_etnaBuffer{};
 };
 }

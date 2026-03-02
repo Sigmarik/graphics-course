@@ -70,6 +70,10 @@ VertexFragmentShader::Dispatch::~Dispatch()
   {
     fragmentPushConstant->apply(*cmdBuf, vk::ShaderStageFlagBits::eFragment, pipeline->getVkPipelineLayout());
   }
+  if (vertexPushConstant)
+  {
+    vertexPushConstant->apply(*cmdBuf, vk::ShaderStageFlagBits::eVertex, pipeline->getVkPipelineLayout());
+  }
 
   if (indirectBuf)
   {

@@ -19,21 +19,31 @@ Renderer::Renderer(glm::uvec2 res)
 
 void Renderer::initVulkan(std::span<const char*> instance_extensions)
 {
-  std::vector<const char*> instanceExtensions;
-
-  for (auto ext : instance_extensions)
-    instanceExtensions.push_back(ext);
+  std::vector<const char*> instanceExtensions(
+    instance_extensions.begin(), instance_extensions.end());
 
   std::vector<const char*> deviceExtensions;
-
   deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+  vk::PhysicalDeviceFeatures features{};
+  features.multiDrawIndirect = VK_TRUE;
+
+  auto descriptorIndexingFeatures =
+    vk::PhysicalDeviceDescriptorIndexingFeatures{}
+  .setShaderSampledImageArrayNonUniformIndexing(VK_TRUE)
+  .setDescriptorBindingPartiallyBound(VK_TRUE)
+  .setDescriptorBindingVariableDescriptorCount(VK_TRUE)
+  .setRuntimeDescriptorArray(VK_TRUE);
+
   etna::initialize(etna::InitParams{
-    .applicationName = "model_bakery_renderer",
+    .applicationName = "spaghetti_application",
     .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
     .instanceExtensions = instanceExtensions,
     .deviceExtensions = deviceExtensions,
-    .features = vk::PhysicalDeviceFeatures2{.features = {}},
+    .features = vk::PhysicalDeviceFeatures2{
+      .pNext = &descriptorIndexingFeatures,
+      .features = features,
+    },
     .physicalDeviceIndexOverride = {},
     .numFramesInFlight = 2,
   });

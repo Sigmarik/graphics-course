@@ -3,13 +3,17 @@ add_executable(spaghetti_test
         Scene.cpp
 )
 
-target_link_libraries(spaghetti_test PRIVATE glm etna spaghetti_renderer)
+target_include_directories(spaghetti_test PUBLIC ..)
+
+target_link_libraries(spaghetti_test
+        PRIVATE spaghetti_renderer)
 
 target_add_shaders(spaghetti_test
-        shaders/full_red.frag
-        shaders/toy.frag
-        shaders/intermediate.frag
+        shaders/indirect.frag
+        shaders/indirect.vert
 )
 
 add_compile_definitions(spaghetti_test PRIVATE
         TEXTURES_ROOT="${PROJECT_SOURCE_DIR}/resources/textures/")
+
+target_include_directories(spaghetti_test PRIVATE ${PROJECT_SOURCE_DIR}/include)

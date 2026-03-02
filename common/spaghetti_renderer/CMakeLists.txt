@@ -21,3 +21,5 @@ target_add_shaders(spaghetti_renderer
         shaders/decals.frag
         shaders/cluster_assign.comp
 )
+
+target_include_directories(spaghetti_renderer PRIVATE ${PROJECT_SOURCE_DIR}/include)

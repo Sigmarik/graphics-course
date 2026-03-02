@@ -31,6 +31,12 @@ struct Mesh
   std::uint32_t relemCount;
 };
 
+struct ImageDescriptor
+{
+  unsigned width = 0, height = 0;
+  std::vector<unsigned char> data{};
+};
+
 class SceneManager
 {
 public:
@@ -55,6 +61,11 @@ public:
 
   etna::VertexByteStreamFormatDescription getVertexFormatDescription();
   etna::VertexByteStreamFormatDescription getCompressedVertexFormatDescription();
+
+  const std::vector<std::variant<std::filesystem::path, ImageDescriptor>>& getImages() const
+  {
+    return images;
+  }
 
 private:
   std::optional<tinygltf::Model> loadModel(std::filesystem::path path);
@@ -115,11 +126,6 @@ private:
   std::vector<glm::mat4x4> instanceMatrices;
   std::vector<std::uint32_t> instanceMeshes;
 
-  struct ImageDescriptor
-  {
-    unsigned width = 0, height = 0;
-    std::vector<unsigned char> data{};
-  };
   std::vector<std::variant<std::filesystem::path, ImageDescriptor>> images;
 
   etna::Buffer unifiedVbuf;

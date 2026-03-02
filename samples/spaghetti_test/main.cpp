@@ -1,5 +1,3 @@
-#include <spaghetti_renderer/spaghetti.hpp>
-
 #include "Scene.h"
 
 int main()

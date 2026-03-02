@@ -6,31 +6,12 @@
 
 #include "Texture.hpp"
 #include "Buffer.hpp"
+#include "PushConstant.hpp"
 
 #include <glm/vec2.hpp>
 
 namespace spg
 {
-
-struct GenericPushConstant
-{
-  virtual ~GenericPushConstant() = default;
-  virtual void apply(vk::CommandBuffer& cmd_buf, vk::ShaderStageFlagBits stage, vk::PipelineLayout layout) = 0;
-};
-
-template <class T>
-struct PushConstant : public GenericPushConstant
-{
-  PushConstant(const T& content) : m_content(content) {}
-
-  void apply(vk::CommandBuffer& cmd_buf, vk::ShaderStageFlagBits stage, vk::PipelineLayout layout) override
-  {
-    cmd_buf.pushConstants<T>(layout, stage, 0, { m_content });
-  }
-
-  T m_content;
-};
-
 class VertexFragmentShader
 {
 public:

@@ -1,5 +1,5 @@
 
-add_library(scene SceneManager.cpp)
+add_library(scene SceneManager.cpp TinygltfStub.cpp)
 
 target_include_directories(scene PUBLIC ..)
 

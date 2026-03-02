@@ -41,7 +41,7 @@ public:
   Texture& file(const std::string& path);
   Texture& data(unsigned char* data);
 
-  void init(vk::CommandBuffer* cmdBuf = nullptr);
+  void init(vk::CommandBuffer* cmdBuf);
 
   void prepareForShaderRead(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage = vk::PipelineStageFlagBits2::eFragmentShader);
   void prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput);

@@ -1,46 +1,103 @@
 #include "Scene.h"
 
-struct ShaderToyParams
+struct InstanceInfo
 {
-  uint32_t resolutionX = 0;
-  uint32_t resolutionY = 0;
-  float mouseX = 0;
-  float mouseY = 800;
-  float time = 0;
+  glm::mat4 transform;
+  // uint32_t textureIdx;
 };
 
 void Scene::initialize()
 {
-  ballTexture.name("ball texture")
-    .useColorAttachment().useSampled();
-  ballTexture.init();
+  sceneManager.selectCompressedScene(GRAPHICS_COURSE_RESOURCES_ROOT "/scenes/low_poly_dark_town/scene_baked.gltf");
 
-  skyTexture.name("sky texture")
-    .file(TEXTURES_ROOT "cloudy_sky.png").useSampled();
-  skyTexture.init(&getCmdBuf());
+  auto instanceMeshes = sceneManager.getInstanceMeshes();
+  auto instanceMatrices = sceneManager.getInstanceMatrices();
+  auto meshes = sceneManager.getMeshes();
+  auto relems = sceneManager.getRenderElements();
 
-  intermediate.shaderPath(SPAGHETTI_TEST_SHADERS_ROOT "intermediate.frag.spv")
-    .addColorAttachment(ballTexture.getFormat());
-  intermediate.init();
+  std::vector<vk::DrawIndexedIndirectCommand> drawCommands;
+  std::vector<InstanceInfo> instances;
 
-  toy.shaderPath(SPAGHETTI_TEST_SHADERS_ROOT "toy.frag.spv")
-    .addPersistentBinding(ballTexture, getDefaultSampler())
-    .addPersistentBinding(skyTexture, getDefaultSampler())
+  // Man do I LOVE fucking with GLFT models! They have SUCH A NICE structure,
+  // I totally do not need to bend over backwards and spread my ass cheeks to
+  // do the simplest of procedures with the thing.
+  for (size_t meshIdx = 0; meshIdx < meshes.size(); ++meshIdx)
+  {
+    std::vector<size_t> instanceIndices;
+    for (size_t idx = 0; idx < instanceMeshes.size(); ++idx)
+    {
+      if (instanceMeshes[idx] == meshIdx) instanceIndices.push_back(idx);
+    }
+
+    for (size_t relemIdx = meshes[meshIdx].firstRelem;
+      relemIdx < meshes[meshIdx].firstRelem + meshes[meshIdx].relemCount; ++relemIdx)
+    {
+      const auto& relem = relems[relemIdx];
+      drawCommands.push_back(vk::DrawIndexedIndirectCommand{
+        .indexCount = relem.indexCount,
+        .instanceCount = static_cast<uint32_t>(instanceIndices.size()),
+        .firstIndex = relem.indexOffset,
+        .vertexOffset = static_cast<int32_t>(relem.vertexOffset),
+        .firstInstance = static_cast<uint32_t>(instances.size()),
+      });
+      for (auto instanceIdx : instanceIndices)
+      {
+        std::ignore = instanceIdx;
+        InstanceInfo inst;
+        inst.transform = instanceMatrices[instanceIdx];
+        // inst.transform = glm::mat4(1.0f);
+        // inst.textureIdx = relem.albedoTextureIndex;
+        instances.emplace_back(inst);
+      }
+    }
+  }
+
+  indirect.name("indirect")
+    .useIndirect()
+    .initAndCopy(drawCommands);
+
+  indirectCount = static_cast<unsigned>(drawCommands.size());
+
+  instanceInfo.name("instanceInfo")
+    .useStorage()
+    .initAndCopy(instances);
+
+  depth.name("depth")
+    .format(vk::Format::eD32Sfloat)
+    .useDepthStencil()
+    .size(getResolution().x, getResolution().y)
+    .init(&getCmdBuf());
+
+  shader.programName("indirectShader")
+    .vertexPath(SPAGHETTI_TEST_SHADERS_ROOT "indirect.vert.spv")
+    .fragmentPath(SPAGHETTI_TEST_SHADERS_ROOT "indirect.frag.spv")
+    .vertexFormat(sceneManager.getCompressedVertexFormatDescription())
+    .depthOutputFormat(depth.raw().getFormat())
     .addColorAttachment(vk::Format::eB8G8R8A8Unorm);
-  toy.init();
+
+  textures.reserve(sceneManager.getImages().size());
+  for (const auto& img : sceneManager.getImages())
+  {
+    if (std::holds_alternative<std::filesystem::path>(img))
+    {
+      const std::filesystem::path& path = std::get<std::filesystem::path>(img);
+      textures.emplace_back();
+      auto& tex = textures.back();
+      tex.name("albedo").file(path.string()).init(&getCmdBuf());
+      shader.addPersistentBinding(tex, getDefaultSampler());
+    }
+  }
+
+  shader.init();
 }
 
 void Scene::render()
 {
-  ShaderToyParams params;
-
-  params.resolutionX = getResolution().x;
-  params.resolutionY = getResolution().y;
-
-  intermediate.dispatch(getCmdBuf())
-    .push(params)
-    .attach(ballTexture);
-
-  toy.dispatch(getCmdBuf())
+  shader.dispatch(getCmdBuf())
+    .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
+    .indirect(indirect, indirectCount)
+    .bind(0, instanceInfo)
+    .attachAsDepth(depth)
+    .pushVertex(getWorldViewProj())
     .attach(getScreenAttachment(), getResolution());
 }

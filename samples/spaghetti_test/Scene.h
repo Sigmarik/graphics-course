@@ -1,6 +1,9 @@
 #pragma once
 
-#include "spaghetti_renderer/primitives/FragmentOnlyShader.hpp"
+#include "scene/SceneManager.hpp"
+
+#include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
+#include <spaghetti_renderer/primitives/VertexFragmentShader.hpp>
 
 
 #include <spaghetti_renderer/spaghetti.hpp>
@@ -12,8 +15,14 @@ protected:
   void render() override;
 
 private:
-  spg::FragmentOnlyShader intermediate{};
-  spg::FragmentOnlyShader toy{};
-  spg::Texture ballTexture{};
-  spg::Texture skyTexture{};
+  std::vector<spg::Texture> textures;
+  spg::Buffer instanceInfo;
+  spg::Buffer indirect;
+
+  spg::Texture depth;
+  spg::VertexFragmentShader shader;
+
+  uint32_t indirectCount = 0;
+
+  SceneManager sceneManager;
 };
