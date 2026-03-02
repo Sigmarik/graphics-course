@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <tiny_gltf.h>
+#include <variant>
 #include <etna/Buffer.hpp>
 #include <etna/BlockingTransferHelper.hpp>
 #include <etna/VertexInput.hpp>
@@ -16,6 +17,7 @@ struct RenderElement
   std::uint32_t vertexOffset;
   std::uint32_t indexOffset;
   std::uint32_t indexCount;
+  std::uint32_t albedoTextureIndex;
   // Not implemented!
   // Material* material;
 };
@@ -101,6 +103,8 @@ private:
     const unsigned char* vertex_buffer,
     size_t vertex_buffer_size);
 
+  void fillTextureInfo(const tinygltf::Model& model, const std::filesystem::path& root);
+
 private:
   tinygltf::TinyGLTF loader;
   std::unique_ptr<etna::OneShotCmdMgr> oneShotCommands;
@@ -110,6 +114,13 @@ private:
   std::vector<Mesh> meshes;
   std::vector<glm::mat4x4> instanceMatrices;
   std::vector<std::uint32_t> instanceMeshes;
+
+  struct ImageDescriptor
+  {
+    unsigned width = 0, height = 0;
+    std::vector<unsigned char> data{};
+  };
+  std::vector<std::variant<std::filesystem::path, ImageDescriptor>> images;
 
   etna::Buffer unifiedVbuf;
   etna::Buffer unifiedIbuf;

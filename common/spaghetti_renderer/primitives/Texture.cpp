@@ -24,6 +24,13 @@ Texture& Texture::file(const std::string& path)
   assert(m_bytes);
   m_width = dimX;
   m_height = dimY;
+  m_storesStbiData = true;
+  return *this;
+}
+
+Texture& Texture::data(unsigned char* data)
+{
+  m_bytes = data;
   return *this;
 }
 
@@ -47,7 +54,7 @@ void Texture::init(vk::CommandBuffer* cmdBuf)
   {
     assert(cmdBuf);
     m_etnaImage = etna::create_image_from_bytes(info, *cmdBuf, m_bytes);
-    stbi_image_free(m_bytes);
+    if (m_storesStbiData) stbi_image_free(m_bytes);
   }
   else
   {

@@ -154,6 +154,8 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
 
   ProcessedMeshes result;
 
+  unsigned textureIndexShift = static_cast<unsigned>(images.size());
+
   // Pre-allocate enough memory so as not to hit the
   // allocator on the memcpy hotpath
   {
@@ -234,10 +236,23 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         hasTexcoord ? &model.bufferViews[accessors[4]->bufferView] : nullptr,
       };
 
+      std::uint32_t texIdx = 0;
+      if (prim.material >= 0 && prim.material < static_cast<int>(model.materials.size()))
+      {
+        const auto& mat = model.materials[prim.material];
+        int texInfoIdx = mat.pbrMetallicRoughness.baseColorTexture.index;
+        if (texInfoIdx >= 0 && texInfoIdx < static_cast<int>(model.textures.size()))
+        {
+          int source = model.textures[texInfoIdx].source;
+          if (source >= 0) texIdx = static_cast<std::uint32_t>(source);
+        }
+      }
+
       result.relems.push_back(RenderElement{
         .vertexOffset = static_cast<std::uint32_t>(result.vertices.size()),
         .indexOffset = static_cast<std::uint32_t>(result.indices.size()),
         .indexCount = static_cast<std::uint32_t>(accessors[0]->count),
+        .albedoTextureIndex = texIdx + textureIndexShift,
       });
 
       const std::size_t vertexCount = accessors[1]->count;
@@ -459,6 +474,23 @@ void SceneManager::uploadCompressedData(
 
   transferHelper.uploadBuffer<unsigned char>(*oneShotCommands, unifiedVbuf, 0, vertices);
   transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
+}
+
+void SceneManager::fillTextureInfo(const tinygltf::Model& model, const std::filesystem::path& root)
+{
+  for (unsigned imageIdx = 0; imageIdx < model.images.size(); ++imageIdx)
+  {
+    const tinygltf::Image& image = model.images[imageIdx];
+    if (!image.uri.empty()) images.emplace_back(root / image.uri);
+    else if (!image.image.size())
+    {
+      ImageDescriptor desc;
+      desc.width = image.width;
+      desc.height = image.height;
+      desc.data = image.image;
+      images.emplace_back(desc);
+    }
+  }
 }
 
 void SceneManager::selectScene(std::filesystem::path path)
