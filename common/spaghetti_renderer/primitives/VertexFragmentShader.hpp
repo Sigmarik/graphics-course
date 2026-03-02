@@ -73,9 +73,16 @@ public:
     Dispatch& indirect(Buffer& commands, uint32_t drawCount);
 
     template <class T>
-    Dispatch& push(const T& constant)
+    Dispatch& pushFragment(const T& constant)
     {
-      pushConstant = std::unique_ptr<GenericPushConstant>(new PushConstant<T>(constant));
+      fragmentPushConstant = std::unique_ptr<GenericPushConstant>(new PushConstant<T>(constant));
+      return *this;
+    }
+
+    template <class T>
+    Dispatch& pushVertex(const T& constant)
+    {
+      vertexPushConstant = std::unique_ptr<GenericPushConstant>(new PushConstant<T>(constant));
       return *this;
     }
 
@@ -88,7 +95,8 @@ public:
     std::vector<etna::Binding> bindings{};
     std::vector<etna::RenderTargetState::AttachmentParams> attachments{};
     etna::RenderTargetState::AttachmentParams depthAttachment;
-    std::unique_ptr<GenericPushConstant> pushConstant{};
+    std::unique_ptr<GenericPushConstant> fragmentPushConstant{};
+    std::unique_ptr<GenericPushConstant> vertexPushConstant{};
 
     vk::Buffer vertexBuf = nullptr;
     vk::Buffer indexBuf = nullptr;
