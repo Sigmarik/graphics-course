@@ -17,9 +17,10 @@ public:
   Buffer& operator=(Buffer&&) = default;
 
   Buffer& size(size_t value) { assert(!m_inited); m_size = value; return *this; }
-  Buffer& useStorage() { assert(!m_inited); m_usage = vk::BufferUsageFlagBits::eStorageBuffer; return *this; }
-  Buffer& useIndex() { assert(!m_inited); m_usage = vk::BufferUsageFlagBits::eIndexBuffer; return *this; }
-  Buffer& useVertex() { assert(!m_inited); m_usage = vk::BufferUsageFlagBits::eVertexBuffer; return *this; }
+  Buffer& useIndirect() { assert(!m_inited); m_usage |= vk::BufferUsageFlagBits::eIndirectBuffer; return *this; }
+  Buffer& useStorage() { assert(!m_inited); m_usage |= vk::BufferUsageFlagBits::eStorageBuffer; return *this; }
+  Buffer& useIndex() { assert(!m_inited); m_usage |= vk::BufferUsageFlagBits::eIndexBuffer; return *this; }
+  Buffer& useVertex() { assert(!m_inited); m_usage |= vk::BufferUsageFlagBits::eVertexBuffer; return *this; }
   Buffer& memCpu2Gpu() { assert(!m_inited); m_memUsage = VMA_MEMORY_USAGE_CPU_TO_GPU; return *this; }
   Buffer& memGpuOnly() { assert(!m_inited); m_memUsage = VMA_MEMORY_USAGE_GPU_ONLY; return *this; }
   Buffer& memGpu2Cpu() { assert(!m_inited); m_memUsage = VMA_MEMORY_USAGE_GPU_TO_CPU; return *this; }
