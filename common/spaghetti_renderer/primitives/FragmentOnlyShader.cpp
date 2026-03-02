@@ -15,6 +15,12 @@ FragmentOnlyShader::Dispatch::~Dispatch()
 {
   if (!bindings.empty() || !attachments.empty()) etna::flush_barriers(*cmdBuf);
 
+  if (descriptorSet != nullptr)
+  {
+    descriptorSet->processBarriers(*cmdBuf);
+    etna::flush_barriers(*cmdBuf);
+  }
+
   ETNA_PROFILE_GPU(*cmdBuf, renderFullscreenFragment);
 
   etna::RenderTargetState renderTargets(
@@ -28,7 +34,8 @@ FragmentOnlyShader::Dispatch::~Dispatch()
   if (!bindings.empty())
   {
     auto programInfo = etna::get_shader_program(programName.c_str());
-    auto set = etna::create_descriptor_set(
+
+    etna::DescriptorSet set = etna::create_descriptor_set(
       programInfo.getDescriptorLayoutId(0),
       *cmdBuf,
       bindings);
@@ -43,6 +50,16 @@ FragmentOnlyShader::Dispatch::~Dispatch()
       &vkSet,
       0,
       nullptr);
+  }
+
+  if (descriptorSet != nullptr)
+  {
+    cmdBuf->bindDescriptorSets(
+      vk::PipelineBindPoint::eGraphics,
+      pipeline->getVkPipelineLayout(),
+      1,
+      {descriptorSet->getVkSet()},
+      {});
   }
 
   if (pushConstant)
@@ -109,6 +126,16 @@ void FragmentOnlyShader::init()
     pipelineManager.createGraphicsPipeline(
       m_programName.c_str(),
       m_creationInfo);
+
+  if (!m_bindlessBindings.empty())
+  {
+    auto shaderInfo = etna::get_shader_program(m_programName.c_str());
+
+    m_descriptorSet = etna::create_persistent_descriptor_set(
+      shaderInfo.getDescriptorLayoutId(1),
+      std::move(m_bindlessBindings),
+      true);
+  }
 }
 
 }

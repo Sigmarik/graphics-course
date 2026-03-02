@@ -24,6 +24,8 @@ void Scene::initialize()
   intermediate.init();
 
   toy.shaderPath(SPAGHETTI_TEST_SHADERS_ROOT "toy.frag.spv")
+    .addPersistentBinding(ballTexture, getDefaultSampler())
+    .addPersistentBinding(skyTexture, getDefaultSampler())
     .addColorAttachment(vk::Format::eB8G8R8A8Unorm);
   toy.init();
 }
@@ -40,7 +42,5 @@ void Scene::render()
     .attach(ballTexture);
 
   toy.dispatch(getCmdBuf())
-    .bind(0, ballTexture, getDefaultSampler())
-    .bind(1, skyTexture, getDefaultSampler())
     .attach(getScreenAttachment(), getResolution());
 }

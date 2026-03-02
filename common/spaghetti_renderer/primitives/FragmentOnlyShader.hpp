@@ -74,24 +74,26 @@ public:
     }
 
   private:
-    vk::CommandBuffer* cmdBuf;
-    etna::GraphicsPipeline* pipeline;
+    vk::CommandBuffer* cmdBuf = nullptr;
+    etna::GraphicsPipeline* pipeline = nullptr;
+    etna::PersistentDescriptorSet* descriptorSet = nullptr;
     unsigned resolutionX = 0, resolutionY = 0;
-    std::vector<etna::Binding> bindings;
-    std::vector<etna::RenderTargetState::AttachmentParams> attachments;
+    std::vector<etna::Binding> bindings{};
+    std::vector<etna::RenderTargetState::AttachmentParams> attachments{};
     etna::RenderTargetState::AttachmentParams depthAttachment;
-    std::unique_ptr<GenericPushConstant> pushConstant;
+    std::unique_ptr<GenericPushConstant> pushConstant{};
 
     std::string programName;
   };
 
   void init();
 
-  Dispatch dispatch(vk::CommandBuffer& commandBuffer)
+  Dispatch dispatch(vk::CommandBuffer& command_buffer)
   {
     assert(m_inited);
-    Dispatch dispatch(commandBuffer, m_etnaPipeline);
+    Dispatch dispatch(command_buffer, m_etnaPipeline);
     dispatch.programName = m_programName;
+    if (m_descriptorSet.isValid()) dispatch.descriptorSet = &m_descriptorSet;
     return dispatch;
   }
 
@@ -153,6 +155,14 @@ public:
     return *this;
   }
 
+  FragmentOnlyShader& addPersistentBinding(Texture& texture, etna::Sampler& sampler)
+  {
+    assert(!m_inited);
+    unsigned arrayElem = static_cast<unsigned>(m_bindlessBindings.size());
+    m_bindlessBindings.emplace_back(texture.getBinding(0, sampler, arrayElem));
+    return *this;
+  }
+
 private:
   bool m_inited = false;
 
@@ -161,6 +171,9 @@ private:
   etna::GraphicsPipeline::CreateInfo m_creationInfo;
 
   etna::GraphicsPipeline m_etnaPipeline;
+
+  etna::PersistentDescriptorSet m_descriptorSet;
+  std::vector<etna::Binding> m_bindlessBindings;
 };
 
 }

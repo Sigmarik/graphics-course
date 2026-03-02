@@ -81,9 +81,11 @@ void Texture::prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStag
       vk::ImageAspectFlagBits::eColor);
 }
 
-etna::Binding Texture::getBinding(unsigned bindingId, const etna::Sampler& sampler)
+etna::Binding Texture::getBinding(unsigned bindingId, const etna::Sampler& sampler, unsigned arrayElem)
 {
-  return {bindingId, raw().genBinding(
-      sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal)};
+  etna::Binding binding(bindingId, raw().genBinding(
+      sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal));
+  binding.arrayElem = arrayElem;
+  return binding;
 }
 }

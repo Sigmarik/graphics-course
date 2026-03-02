@@ -1,7 +1,6 @@
 #version 450
 
-layout(binding = 0) uniform sampler2D iBallTexture;
-layout(binding = 1) uniform sampler2D iSkyTexture;
+layout(set = 1, binding = 0) uniform sampler2D textures[];
 
 layout(location = 0) out vec4 out_fragColor;
 
@@ -86,7 +85,7 @@ vec3 ballColor(vec3 worldNormal)
   vec3 normal = rotation * worldNormal;
   vec2 direction = getLookDirection(normal);
 
-  return texture(iBallTexture, direction).rgb;
+  return texture(textures[0], direction).rgb;
 }
 
 float waterPlane(vec3 pos)
@@ -186,7 +185,7 @@ vec3 sky(vec3 ray)
   vec2 dir = getLookDirection(normalize(ray));
   dir.x += 0.75;  // 1.0 = 360 degrees
   if (dir.x > 1.0) dir.x -= 1.0;
-  vec3 color = texture(iSkyTexture, dir).rgb;
+  vec3 color = texture(textures[1], dir).rgb;
 
   float smoothing = 0.2;
 

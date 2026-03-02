@@ -52,7 +52,7 @@ public:
     return {.image = raw().get(), .view = raw().getView({})};
   }
 
-  etna::Binding getBinding(unsigned bindingId, const etna::Sampler& sampler);
+  etna::Binding getBinding(unsigned bindingId, const etna::Sampler& sampler, unsigned arrayElem = 0);
 
   vk::Format getFormat() { return m_inited ? m_format : m_etnaImage.getFormat(); }
 
