@@ -6,6 +6,7 @@ add_library(spaghetti_renderer
         primitives/Texture.cpp
         primitives/Buffer.cpp
         primitives/FragmentOnlyShader.cpp
+        primitives/VertexFragmentShader.cpp
 )
 
 target_include_directories(spaghetti_renderer PUBLIC ..)

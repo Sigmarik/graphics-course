@@ -59,7 +59,7 @@ public:
 private:
   unsigned m_width = 256, m_height = 256;
   vk::ImageUsageFlags m_flags;
-  vk::Format m_format = vk::Format::eB8G8R8A8Srgb;
+  vk::Format m_format = vk::Format::eR8G8B8A8Srgb;
   std::string m_name = "";
 
   unsigned char* m_bytes = nullptr;
