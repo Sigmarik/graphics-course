@@ -38,8 +38,7 @@ public:
   Texture& name(const std::string& value) { assert(!m_inited); m_name = value; return *this; }
   Texture& format(vk::Format value) { assert(!m_inited); m_format = value; return *this; }
 
-  Texture& file(const std::string& path);
-  Texture& data(unsigned char* data);
+  Texture& data(const unsigned char* data);
 
   void init(vk::CommandBuffer* cmdBuf);
 
@@ -63,8 +62,7 @@ private:
   vk::Format m_format = vk::Format::eR8G8B8A8Srgb;
   std::string m_name = "";
 
-  unsigned char* m_bytes = nullptr;
-  bool m_storesStbiData = false;
+  const unsigned char* m_bytes = nullptr;
 
   etna::Image m_etnaImage;
   std::optional<vk::ImageView> m_viewOverride;

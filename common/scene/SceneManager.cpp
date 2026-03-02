@@ -50,6 +50,8 @@ std::optional<tinygltf::Model> SceneManager::loadModel(std::filesystem::path pat
     !model.extensions.empty() || !model.extensionsRequired.empty() || !model.extensionsUsed.empty())
     spdlog::warn("glTF: No glTF extensions are currently implemented!");
 
+  fillTextureInfo(model);
+
   return model;
 }
 
@@ -154,8 +156,6 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
 
   ProcessedMeshes result;
 
-  unsigned textureIndexShift = static_cast<unsigned>(images.size());
-
   // Pre-allocate enough memory so as not to hit the
   // allocator on the memcpy hotpath
   {
@@ -252,7 +252,7 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         .vertexOffset = static_cast<std::uint32_t>(result.vertices.size()),
         .indexOffset = static_cast<std::uint32_t>(result.indices.size()),
         .indexCount = static_cast<std::uint32_t>(accessors[0]->count),
-        .albedoTextureIndex = texIdx + textureIndexShift,
+        .albedoTextureIndex = texIdx,
       });
 
       const std::size_t vertexCount = accessors[1]->count;
@@ -382,6 +382,33 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
 
   return result;
 }
+
+static int getDiffuseTextureIndexFromExtension(const tinygltf::Material& mat) {
+  auto it = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
+  if (it == mat.extensions.end())
+    return -1;
+
+  const auto& ext = it->second;
+  if (!ext.IsObject())
+    return -1;
+
+  if (!ext.Has("diffuseTexture"))
+    return -1;
+
+  const auto& diffuseTex = ext.Get("diffuseTexture");
+  if (!diffuseTex.IsObject())
+    return -1;
+
+  if (!diffuseTex.Has("index"))
+    return -1;
+
+  const auto& idxVal = diffuseTex.Get("index");
+  if (!idxVal.IsInt())
+    return -1;
+
+  return idxVal.GetNumberAsInt();
+}
+
 SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
   const tinygltf::Model& model) const
 {
@@ -408,12 +435,26 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
 
     for (const auto& prim : mesh.primitives)
     {
+      std::uint32_t texIdx = 0;
+      if (prim.material >= 0 && prim.material < static_cast<int>(model.materials.size()))
+      {
+        const auto& mat = model.materials[prim.material];
+        int texInfoIdx = getDiffuseTextureIndexFromExtension(mat);
+        if (texInfoIdx >= 0 && texInfoIdx < static_cast<int>(model.textures.size()))
+        {
+          int source = model.textures[texInfoIdx].source;
+          if (source >= 0)
+            texIdx = static_cast<std::uint32_t>(source);
+        }
+      }
+
       RenderElement relem;
       relem.indexCount = static_cast<uint32_t>(model.accessors.at(prim.indices).count);
       relem.indexOffset =
         static_cast<uint32_t>(model.accessors.at(prim.indices).byteOffset / sizeof(uint32_t));
       relem.vertexOffset =
         static_cast<uint32_t>(model.accessors.at(prim.attributes.at("POSITION")).byteOffset / 32);
+      relem.albedoTextureIndex = texIdx;
       result.relems.push_back(relem);
     }
   }
@@ -476,13 +517,12 @@ void SceneManager::uploadCompressedData(
   transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
 }
 
-void SceneManager::fillTextureInfo(const tinygltf::Model& model, const std::filesystem::path& root)
+void SceneManager::fillTextureInfo(const tinygltf::Model& model)
 {
   for (unsigned imageIdx = 0; imageIdx < model.images.size(); ++imageIdx)
   {
     const tinygltf::Image& image = model.images[imageIdx];
-    if (!image.uri.empty()) images.emplace_back(root / image.uri);
-    else if (!image.image.size())
+    if (!image.image.empty())
     {
       ImageDescriptor desc;
       desc.width = image.width;

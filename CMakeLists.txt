@@ -31,8 +31,6 @@ endif()
 include("cmake/thirdparty.cmake")
 include("cmake/shaders.cmake")
 
-target_compile_definitions(tinygltf PRIVATE TINYGLTF_NO_STB_IMAGE)
-
 add_subdirectory(common)
 add_subdirectory(tasks)
 add_subdirectory(samples)

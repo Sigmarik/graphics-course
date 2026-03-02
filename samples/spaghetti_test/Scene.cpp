@@ -34,6 +34,7 @@ void Scene::initialize()
       relemIdx < meshes[meshIdx].firstRelem + meshes[meshIdx].relemCount; ++relemIdx)
     {
       const auto& relem = relems[relemIdx];
+      assert(relem.albedoTextureIndex < sceneManager.getImages().size());
       drawCommands.push_back(vk::DrawIndexedIndirectCommand{
         .indexCount = relem.indexCount,
         .instanceCount = static_cast<uint32_t>(instanceIndices.size()),
@@ -78,14 +79,16 @@ void Scene::initialize()
   textures.reserve(sceneManager.getImages().size());
   for (const auto& img : sceneManager.getImages())
   {
-    if (std::holds_alternative<std::filesystem::path>(img))
-    {
-      const std::filesystem::path& path = std::get<std::filesystem::path>(img);
-      textures.emplace_back();
-      auto& tex = textures.back();
-      tex.name("albedo").file(path.string()).init(&getCmdBuf());
-      shader.addPersistentBinding(tex, getDefaultSampler());
-    }
+    textures.emplace_back();
+    auto& tex = textures.back();
+    tex.name("albedo")
+      .size(img.width, img.height)
+      .data(&img.data.front())
+      .format(vk::Format::eR8G8B8A8Srgb)
+      .useSampled()
+      // .useTransferDst()
+      .init(&getCmdBuf());
+    shader.addPersistentBinding(tex, getDefaultSampler());
   }
 
   shader.init();

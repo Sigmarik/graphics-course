@@ -1,8 +1,5 @@
 #include "Texture.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 namespace spg
 {
 
@@ -17,18 +14,7 @@ Texture::Texture(etna::Image image, vk::ImageView fixedView) : Texture(std::move
   m_viewOverride = std::move(fixedView);
 }
 
-Texture& Texture::file(const std::string& path)
-{
-  int dimX = 0, dimY = 0;
-  m_bytes = stbi_load(path.c_str(), &dimX, &dimY, nullptr, 4);
-  assert(m_bytes);
-  m_width = dimX;
-  m_height = dimY;
-  m_storesStbiData = true;
-  return *this;
-}
-
-Texture& Texture::data(unsigned char* data)
+Texture& Texture::data(const unsigned char* data)
 {
   m_bytes = data;
   return *this;
@@ -54,7 +40,6 @@ void Texture::init(vk::CommandBuffer* cmdBuf)
   {
     assert(cmdBuf);
     m_etnaImage = etna::create_image_from_bytes(info, *cmdBuf, m_bytes);
-    if (m_storesStbiData) stbi_image_free(m_bytes);
   }
   else
   {

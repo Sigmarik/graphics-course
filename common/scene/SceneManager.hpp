@@ -62,7 +62,7 @@ public:
   etna::VertexByteStreamFormatDescription getVertexFormatDescription();
   etna::VertexByteStreamFormatDescription getCompressedVertexFormatDescription();
 
-  const std::vector<std::variant<std::filesystem::path, ImageDescriptor>>& getImages() const
+  const std::vector<ImageDescriptor>& getImages() const
   {
     return images;
   }
@@ -114,7 +114,7 @@ private:
     const unsigned char* vertex_buffer,
     size_t vertex_buffer_size);
 
-  void fillTextureInfo(const tinygltf::Model& model, const std::filesystem::path& root);
+  void fillTextureInfo(const tinygltf::Model& model);
 
 private:
   tinygltf::TinyGLTF loader;
@@ -126,7 +126,7 @@ private:
   std::vector<glm::mat4x4> instanceMatrices;
   std::vector<std::uint32_t> instanceMeshes;
 
-  std::vector<std::variant<std::filesystem::path, ImageDescriptor>> images;
+  std::vector<ImageDescriptor> images;
 
   etna::Buffer unifiedVbuf;
   etna::Buffer unifiedIbuf;
