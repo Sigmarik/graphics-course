@@ -18,6 +18,7 @@ struct RenderElement
   std::uint32_t indexOffset;
   std::uint32_t indexCount;
   std::uint32_t albedoTextureIndex;
+  glm::vec3 fallbackDiffuse;
   // Not implemented!
   // Material* material;
 };

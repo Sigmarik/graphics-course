@@ -409,6 +409,50 @@ static int getDiffuseTextureIndexFromExtension(const tinygltf::Material& mat) {
   return idxVal.GetNumberAsInt();
 }
 
+static glm::vec3 getDiffuseFactorFromExtension(const tinygltf::Material& mat) {
+  glm::vec3 emissiveFactor(0.0f);
+  if (mat.emissiveFactor.size() >= 3) {
+    emissiveFactor = glm::vec3(
+      static_cast<float>(mat.emissiveFactor[0]),
+      static_cast<float>(mat.emissiveFactor[1]),
+      static_cast<float>(mat.emissiveFactor[2])
+    );
+  }
+
+  auto extIt = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
+  if (extIt == mat.extensions.end())
+    return emissiveFactor;
+
+  const auto& extVal = extIt->second;
+  if (!extVal.IsObject())
+    return emissiveFactor;
+
+  if (!extVal.Has("diffuseFactor"))
+    return emissiveFactor;
+
+  const auto& factorVal = extVal.Get("diffuseFactor");
+  if (!factorVal.IsArray())
+    return emissiveFactor;
+
+  // Check array size (at least 3 elements for RGB)
+  if (factorVal.Size() < 3)
+    return emissiveFactor;
+
+  // Helper to safely extract a float from an array element
+  auto getFloat = [&](size_t idx) -> float {
+    const auto& elem = factorVal.Get(static_cast<int>(idx));
+    if (elem.IsNumber())
+      return static_cast<float>(elem.GetNumberAsDouble());
+    return 1.0f; // default if element is not a number
+  };
+
+  return glm::vec3(
+      getFloat(0),
+      getFloat(1),
+      getFloat(2)
+  ) + emissiveFactor;
+}
+
 SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
   const tinygltf::Model& model) const
 {
@@ -433,28 +477,32 @@ SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
     newMesh.relemCount = static_cast<uint32_t>(mesh.primitives.size());
     result.meshes.push_back(newMesh);
 
+    RenderElement relem;
+
     for (const auto& prim : mesh.primitives)
     {
       std::uint32_t texIdx = 0;
+      glm::vec3 fallbackDiffuse(1.0f);
       if (prim.material >= 0 && prim.material < static_cast<int>(model.materials.size()))
       {
         const auto& mat = model.materials[prim.material];
         int texInfoIdx = getDiffuseTextureIndexFromExtension(mat);
+        fallbackDiffuse = getDiffuseFactorFromExtension(mat);
         if (texInfoIdx >= 0 && texInfoIdx < static_cast<int>(model.textures.size()))
         {
           int source = model.textures[texInfoIdx].source;
           if (source >= 0)
-            texIdx = static_cast<std::uint32_t>(source);
+            texIdx = static_cast<std::uint32_t>(source) + 1;
         }
       }
 
-      RenderElement relem;
       relem.indexCount = static_cast<uint32_t>(model.accessors.at(prim.indices).count);
       relem.indexOffset =
         static_cast<uint32_t>(model.accessors.at(prim.indices).byteOffset / sizeof(uint32_t));
       relem.vertexOffset =
         static_cast<uint32_t>(model.accessors.at(prim.attributes.at("POSITION")).byteOffset / 32);
       relem.albedoTextureIndex = texIdx;
+      relem.fallbackDiffuse = fallbackDiffuse;
       result.relems.push_back(relem);
     }
   }

@@ -5,6 +5,8 @@ struct InstanceInfo
   glm::mat4 transform;
   uint32_t textureIdx;
   uint32_t _pad[3];
+  glm::vec3 fallbackDiffuse;
+  uint32_t _pad2[1];
 };
 
 void Scene::initialize()
@@ -34,7 +36,6 @@ void Scene::initialize()
       relemIdx < meshes[meshIdx].firstRelem + meshes[meshIdx].relemCount; ++relemIdx)
     {
       const auto& relem = relems[relemIdx];
-      assert(relem.albedoTextureIndex < sceneManager.getImages().size());
       drawCommands.push_back(vk::DrawIndexedIndirectCommand{
         .indexCount = relem.indexCount,
         .instanceCount = static_cast<uint32_t>(instanceIndices.size()),
@@ -48,6 +49,7 @@ void Scene::initialize()
         InstanceInfo inst;
         inst.transform = instanceMatrices[instanceIdx];
         inst.textureIdx = relem.albedoTextureIndex;
+        inst.fallbackDiffuse = relem.fallbackDiffuse;
         instances.emplace_back(inst);
       }
     }

@@ -15,6 +15,7 @@ struct InstanceInfo
 {
     mat4 model;
     uint texIdx;
+    vec3 fallbackDiffuse;
 };
 
 layout(std140, set = 0, binding = 0) readonly buffer InstanceInfoBuffer
@@ -30,6 +31,7 @@ layout (location = 0 ) out VS_OUT
     vec3 wTangent;
     vec2 texCoord;
     vec4 wClipPos;
+    vec3 fallbackDiffuse;
     flat uint texId;
 } vOut;
 
@@ -49,6 +51,7 @@ void main(void)
     vOut.wNorm  = normalize(mat3(transpose(inverse(model))) * wNorm.xyz);
     vOut.wTangent = normalize(mat3(transpose(inverse(model))) * wTang.xyz);
     vOut.texCoord = vUv;
+    vOut.fallbackDiffuse = instance.fallbackDiffuse;
     vOut.texId = instance.texIdx;
 
     vOut.wClipPos = params.mProjView * vec4(vOut.wPos, 1.0);
