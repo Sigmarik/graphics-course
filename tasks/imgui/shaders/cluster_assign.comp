@@ -1,0 +1,126 @@
+#version 430
+
+layout(local_size_x = 10, local_size_y = 10, local_size_z = 10) in;
+
+const uint DEFERRED_CLUSTER_COUNT_LATERAL = 30;
+const uint DEFERRED_CLUSTER_COUNT_VERTICAL = 50;
+
+struct DeferredCluster
+{
+    uint count;
+    uint indices[100];
+};
+
+layout(std430, binding = 0) writeonly buffer deferredClusters
+{
+    DeferredCluster clusters[];
+};
+
+struct PointLight
+{
+    vec3 position;
+    vec3 color;
+    float radius;
+};
+
+layout(std430, binding = 1) readonly buffer pointLights
+{
+    PointLight lights[];
+};
+
+layout(push_constant) uniform params_t
+{
+    mat4 mInverseProj;
+    mat4 mView;
+    uint mNumberOfLights;
+} params;
+
+vec3 transformed(mat4 transform, vec3 position)
+{
+    vec4 raw = transform * vec4(position, 1.0);
+    return raw.xyz / raw.w;
+}
+
+void makeBox(out vec3 boxMin, out vec3 boxMax,
+                 vec3 v0, vec3 v1, vec3 v2, vec3 v3, vec3 v4, vec3 v5, vec3 v6, vec3 v7)
+{
+    boxMin = min(v0, v1);
+    boxMax = max(v0, v1);
+
+    boxMin = min(boxMin, v2);
+    boxMax = max(boxMax, v2);
+
+    boxMin = min(boxMin, v3);
+    boxMax = max(boxMax, v3);
+
+    boxMin = min(boxMin, v4);
+    boxMax = max(boxMax, v4);
+
+    boxMin = min(boxMin, v5);
+    boxMax = max(boxMax, v5);
+
+    boxMin = min(boxMin, v6);
+    boxMax = max(boxMax, v6);
+
+    boxMin = min(boxMin, v7);
+    boxMax = max(boxMax, v7);
+}
+
+vec3 frustumRelative(vec4 near, vec4 far, vec3 position)
+{
+    vec3 relative = near.xyz * (1.0 - position.z) + far.xyz * position.z;
+    relative.xy *= position.xy;
+    return relative;
+}
+
+void main()
+{
+    ivec3 fragCoord = ivec3(gl_GlobalInvocationID.xyz);
+
+    if (fragCoord.x >= DEFERRED_CLUSTER_COUNT_LATERAL ||
+        fragCoord.y >= DEFERRED_CLUSTER_COUNT_LATERAL ||
+        fragCoord.z >= DEFERRED_CLUSTER_COUNT_VERTICAL) return;
+
+    uint clusterIdx = fragCoord.x * DEFERRED_CLUSTER_COUNT_LATERAL * DEFERRED_CLUSTER_COUNT_VERTICAL +
+            fragCoord.y * DEFERRED_CLUSTER_COUNT_VERTICAL + fragCoord.z;
+
+    vec3 clusterSize = vec3(
+        2.0 / DEFERRED_CLUSTER_COUNT_LATERAL,
+        2.0 / DEFERRED_CLUSTER_COUNT_LATERAL,
+        1.0 / DEFERRED_CLUSTER_COUNT_VERTICAL
+    );
+
+    vec4 frustumNear = params.mInverseProj * vec4(1.0, 1.0, -1.0, 1.0);
+    frustumNear /= frustumNear.w;
+    vec4 frustumFar = params.mInverseProj * vec4(1.0, 1.0, 1.0, 1.0);
+    frustumFar /= frustumFar.w;
+
+    vec3 relativeStart = vec3(-1.0, -1.0, 0.0);
+
+    vec3 boxMin, boxMax;
+    makeBox(boxMin, boxMax,
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(0, 0, 0))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(0, 0, 1))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(0, 1, 0))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(0, 1, 1))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(1, 0, 0))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(1, 0, 1))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(1, 1, 0))),
+            frustumRelative(frustumNear, frustumFar, relativeStart + clusterSize * (fragCoord + ivec3(1, 1, 1)))
+        );
+
+    uint count = 0;
+    for (uint lightIdx = 0; lightIdx < params.mNumberOfLights; ++lightIdx)
+    {
+        PointLight light = lights[lightIdx];
+        vec3 lightPos = transformed(params.mView, light.position);
+        vec3 tBoxMin = boxMin - lightPos - vec3(light.radius);
+        vec3 tBoxMax = boxMax - lightPos + vec3(light.radius);
+        if (tBoxMin.x >= 0.0 || tBoxMin.y >= 0.0 || tBoxMin.z >= 0.0 ||
+            tBoxMax.x <= 0.0 || tBoxMax.y <= 0.0 || tBoxMax.z <= 0.0) continue;
+        clusters[clusterIdx].indices[count] = lightIdx;
+        ++count;
+        if (count >= 100) break;
+    }
+    clusters[clusterIdx].count = count;
+}

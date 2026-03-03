@@ -28,7 +28,8 @@ void WorldRenderer::allocateResources(glm::uvec2 swapchain_resolution)
 
 void WorldRenderer::loadScene(std::filesystem::path path)
 {
-  sceneMgr->selectScene(path);
+  // sceneMgr->selectScene(path);
+  sceneMgr->selectCompressedScene(path);
 }
 
 void WorldRenderer::loadShaders()
@@ -44,7 +45,7 @@ void WorldRenderer::setupPipelines(vk::Format swapchain_format)
 {
   etna::VertexShaderInputDescription sceneVertexInputDesc{
     .bindings = {etna::VertexShaderInputDescription::Binding{
-      .byteStreamDescription = sceneMgr->getVertexFormatDescription(),
+      .byteStreamDescription = sceneMgr->getCompressedVertexFormatDescription(),
     }},
   };
 
