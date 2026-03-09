@@ -1,6 +1,10 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+const float CELL_SIZE = 0.1;
+const float SCALE_MIN = 0.9;
+const float SCALE_MAX = 1.1;
+
 layout(location = 0) in vec3 vPos;
 layout(location = 1) in float vHeight;
 
@@ -16,39 +20,101 @@ layout (location = 0 ) out VS_OUT
 
 out gl_PerVertex { vec4 gl_Position; };
 
-ivec2 instanceCell() {
-    int n = gl_InstanceIndex;
-    if (n == 0) return ivec2(0);
-
-    // Find ring k such that (2k-1)^2 <= n < (2k+1)^2
-    int k = int(floor((sqrt(float(n)) + 1.0) / 2.0));
-    int start = (2 * k - 1) * (2 * k - 1);
-    int offset = n - start;
-    int side = 2 * k; // number of cells on each side of the ring
-
-    int x, y;
-    if (offset < side) { // right side, moving up
-                         x = k;
-                         y = 1 - k + offset;
-    } else if (offset < 2 * side) { // top side, moving left
-                                    int t = offset - side;
-                                    x = k - 1 - t;
-                                    y = k;
-    } else if (offset < 3 * side) { // left side, moving down
-                                    int t = offset - 2 * side;
-                                    x = -k;
-                                    y = k - 1 - t;
-    } else { // bottom side, moving right
-             int t = offset - 3 * side;
-             x = -k + 1 + t;
-             y = -k;
-    }
-    return ivec2(x, y);
+vec2 intersectPlane(vec3 start, vec3 end, float planeY)
+{
+    float t = -(start.y - planeY) / (end.y - start.y);
+    return start.xz + t * (end.xz - start.xz);
 }
 
-const float CELL_SIZE = 0.1;
-const float SCALE_MIN = 0.9;
-const float SCALE_MAX = 1.1;
+void viewRectangle(out vec2 bottomLeft, out vec2 bottomRight, out vec2 topLeft, out vec2 topRight)
+{
+    mat4 invProjView = inverse(params.mProjView);
+
+    float span = 1.1;
+    vec4 bl = invProjView * vec4(-span, -span, -1.0, 1.0);
+    vec4 br = invProjView * vec4(span, -span, -1.0, 1.0);
+    vec4 tl = invProjView * vec4(-span, -span + 0.01, -1.0, 1.0);
+    vec4 tr = invProjView * vec4(span, -span + 0.01, -1.0, 1.0);
+
+    vec4 origin = invProjView * vec4(0.0, 0.0, 0.0, 1.0);
+
+    bl /= bl.w;
+    br /= br.w;
+    tl /= tl.w;
+    tr /= tr.w;
+
+    origin /= origin.w;
+
+    bottomLeft = intersectPlane(origin.xyz, bl.xyz, 0.0);
+    bottomRight = intersectPlane(origin.xyz, br.xyz, 0.0);
+    topLeft = intersectPlane(origin.xyz, tl.xyz, 0.0);
+    topRight = intersectPlane(origin.xyz, tr.xyz, 0.0);
+}
+
+uint cellIntegral(float bottomSize, float topSize, float bottomToTopDistance, float roughDistance)
+{
+    float currentSize = bottomSize + (topSize - bottomSize) * roughDistance / bottomToTopDistance;
+    float exactIntegral = (bottomSize + currentSize) / 2 * roughDistance;
+    return uint(exactIntegral);
+}
+
+// Frustum-based instance generation, works better than every other technique
+// combined in my oppinion, and is very simple to implement.
+// Sorry to disappoint if you wanted to see hot byte-on-byte buffer fapping or
+// something, I wold much rather practice methods that actually work.
+ivec2 instanceCell()
+{
+    vec2 bottomLeft = vec2(-20, -20);
+    vec2 bottomRight = vec2(20, -20);
+    vec2 topLeft = vec2(-30, 20);
+    vec2 topRight = vec2(30, 20);
+    viewRectangle(bottomLeft, bottomRight, topLeft, topRight);
+
+    bottomLeft /= CELL_SIZE;
+    bottomRight /= CELL_SIZE;
+    topLeft /= CELL_SIZE;
+    topRight /= CELL_SIZE;
+
+    float bottomSize = distance(bottomLeft, bottomRight);
+    float topSize = distance(topLeft, topRight);
+    vec2 frustumAxis = (topLeft + topRight) * 0.5 - (bottomLeft + bottomRight) * 0.5;
+    float bottomToTopDistance = length(frustumAxis);
+
+    // Because I rely on integrals and linear algebra and not exact cell structure,
+    // I need to "scew" indices a little to avoid grass flickering.
+    float perceivedIndex = gl_InstanceIndex * 0.4;
+
+    // Boonga need roughDistance. Boonga derive roughDistance from equation:
+
+    // (bottomSize * 2 + (topSize - bottomSize) * roughDistance / bottomToTopDistance) / 2 * roughDistance ~= gl_InstanceID
+    // roughDistance > 0
+
+    float roughDistance = perceivedIndex / bottomSize;
+    if (bottomSize != topSize)
+    {
+        roughDistance = (
+                bottomSize * bottomToTopDistance -
+                sqrt(bottomToTopDistance * (
+                    bottomSize * bottomSize * bottomToTopDistance +
+                    2 * perceivedIndex * (topSize - bottomSize)
+                ))
+            ) / (bottomSize - topSize);
+    }
+
+    uint cellCountMin = cellIntegral(bottomSize, topSize, bottomToTopDistance, floor(roughDistance));
+    uint cellCountMax = cellIntegral(bottomSize, topSize, bottomToTopDistance, ceil(roughDistance));
+
+    float horizontalCoefficient = float(perceivedIndex - cellCountMin) / (cellCountMax - cellCountMin) - 0.5;
+
+//    horizontalCoefficient = 0.5;
+//    roughDistance = gl_InstanceIndex;
+
+    vec2 roughPosition = (bottomLeft + bottomRight) * 0.5 + normalize(frustumAxis) * floor(roughDistance) +
+        (bottomSize + (topSize - bottomSize) * floor(roughDistance) / bottomToTopDistance) * horizontalCoefficient *
+        normalize(bottomRight - bottomLeft);
+
+    return ivec2(roughPosition);
+}
 
 float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
