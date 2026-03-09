@@ -72,8 +72,8 @@ void Scene::initialize()
     .init(&getCmdBuf());
 
   shader.programName("indirectShader")
-    .vertexPath(SPAGHETTI_TEST_SHADERS_ROOT "grass.vert.spv")
-    .fragmentPath(SPAGHETTI_TEST_SHADERS_ROOT "grass.frag.spv")
+    .vertexPath(SPAGHETTI_TEST_SHADERS_ROOT "indirect.vert.spv")
+    .fragmentPath(SPAGHETTI_TEST_SHADERS_ROOT "indirect.frag.spv")
     .vertexFormat(sceneManager.getCompressedVertexFormatDescription())
     .depthOutputFormat(depth.raw().getFormat())
     .addColorAttachment(vk::Format::eB8G8R8A8Unorm);

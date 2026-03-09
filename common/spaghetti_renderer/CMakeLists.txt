@@ -11,7 +11,7 @@ add_library(spaghetti_renderer
 
 target_include_directories(spaghetti_renderer PUBLIC ..)
 
-target_link_libraries(spaghetti_renderer PUBLIC glfw etna glm wsi gui scene render_utils)
+target_link_libraries(spaghetti_renderer PRIVATE tinygltf glfw etna glm wsi gui scene render_utils)
 
 target_add_shaders(spaghetti_renderer
         shaders/static_mesh.frag

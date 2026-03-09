@@ -72,8 +72,8 @@ void Scene::initialize()
     .init(&getCmdBuf());
 
   shader.programName("indirectShader")
-    .vertexPath(BINDLESS_SHADERS_ROOT "grass.vert.spv")
-    .fragmentPath(BINDLESS_SHADERS_ROOT "grass.frag.spv")
+    .vertexPath(BINDLESS_SHADERS_ROOT "indirect.vert.spv")
+    .fragmentPath(BINDLESS_SHADERS_ROOT "indirect.frag.spv")
     .vertexFormat(sceneManager.getCompressedVertexFormatDescription())
     .depthOutputFormat(depth.raw().getFormat())
     .addColorAttachment(vk::Format::eB8G8R8A8Unorm);

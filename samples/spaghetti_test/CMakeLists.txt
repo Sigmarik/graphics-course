@@ -6,7 +6,7 @@ add_executable(spaghetti_test
 target_include_directories(spaghetti_test PUBLIC ..)
 
 target_link_libraries(spaghetti_test
-        PRIVATE spaghetti_renderer)
+        PRIVATE etna wsi gui tinygltf spaghetti_renderer)
 
 target_add_shaders(spaghetti_test
         shaders/indirect.frag

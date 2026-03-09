@@ -6,7 +6,7 @@ add_executable(bindless
 target_include_directories(bindless PUBLIC ..)
 
 target_link_libraries(bindless
-        PRIVATE spaghetti_renderer)
+        PRIVATE etna wsi gui tinygltf spaghetti_renderer)
 
 target_add_shaders(bindless
         shaders/indirect.frag

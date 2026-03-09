@@ -6,7 +6,7 @@ add_executable(grass
 target_include_directories(grass PUBLIC ..)
 
 target_link_libraries(grass
-        PRIVATE spaghetti_renderer)
+        PRIVATE etna wsi gui spaghetti_renderer)
 
 target_add_shaders(grass
         shaders/grass.frag
