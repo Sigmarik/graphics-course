@@ -1,69 +1,50 @@
 #include "Scene.h"
 
-struct InstanceInfo
+struct GrassVertex
 {
-  glm::mat4 transform;
-  uint32_t textureIdx;
-  uint32_t _pad[3];
-  glm::vec3 fallbackDiffuse;
-  uint32_t _pad2[1];
+  glm::vec3 pos;
+  float relativeHeight;
 };
 
 void Scene::initialize()
 {
-  sceneManager.selectCompressedScene(GRAPHICS_COURSE_RESOURCES_ROOT "/scenes/low_poly_dark_town/scene_baked.gltf");
+  etna::VertexByteStreamFormatDescription grassVtxFormat = {
+    .stride = sizeof(GrassVertex),
+    .attributes = {
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32B32Sfloat,
+        .offset = 0,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32Sfloat,
+        .offset = sizeof(glm::vec3),
+      },
+    }
+  };
 
-  auto instanceMeshes = sceneManager.getInstanceMeshes();
-  auto instanceMatrices = sceneManager.getInstanceMatrices();
-  auto meshes = sceneManager.getMeshes();
-  auto relems = sceneManager.getRenderElements();
-
-  std::vector<vk::DrawIndexedIndirectCommand> drawCommands;
-  std::vector<InstanceInfo> instances;
-
-  // Man do I LOVE fucking with GLFT models! They have SUCH A NICE structure,
-  // I totally do not need to bend over backwards and spread my ass cheeks to
-  // do the simplest of procedures with the thing.
-  for (size_t meshIdx = 0; meshIdx < meshes.size(); ++meshIdx)
+  std::vector<GrassVertex> grassVertices
   {
-    std::vector<size_t> instanceIndices;
-    for (size_t idx = 0; idx < instanceMeshes.size(); ++idx)
-    {
-      if (instanceMeshes[idx] == meshIdx) instanceIndices.push_back(idx);
-    }
+    GrassVertex{
+      .pos = glm::vec3(-0.05, 0, 0),
+      .relativeHeight = 0,
+    },
+    GrassVertex{
+      .pos = glm::vec3(0.05, 0, 0),
+      .relativeHeight = 0,
+    },
+    GrassVertex{
+      .pos = glm::vec3(0, 0.3, 0),
+      .relativeHeight = 1,
+    },
+  };
 
-    for (size_t relemIdx = meshes[meshIdx].firstRelem;
-      relemIdx < meshes[meshIdx].firstRelem + meshes[meshIdx].relemCount; ++relemIdx)
-    {
-      const auto& relem = relems[relemIdx];
-      drawCommands.push_back(vk::DrawIndexedIndirectCommand{
-        .indexCount = relem.indexCount,
-        .instanceCount = static_cast<uint32_t>(instanceIndices.size()),
-        .firstIndex = relem.indexOffset,
-        .vertexOffset = static_cast<int32_t>(relem.vertexOffset),
-        .firstInstance = static_cast<uint32_t>(instances.size()),
-      });
-      for (auto instanceIdx : instanceIndices)
-      {
-        std::ignore = instanceIdx;
-        InstanceInfo inst;
-        inst.transform = instanceMatrices[instanceIdx];
-        inst.textureIdx = relem.albedoTextureIndex;
-        inst.fallbackDiffuse = relem.fallbackDiffuse;
-        instances.emplace_back(inst);
-      }
-    }
-  }
+  vertices.name("vertices")
+    .useVertex()
+    .initAndCopy(grassVertices);
 
-  indirect.name("indirect")
-    .useIndirect()
-    .initAndCopy(drawCommands);
-
-  indirectCount = static_cast<unsigned>(drawCommands.size());
-
-  instanceInfo.name("instanceInfo")
-    .useStorage()
-    .initAndCopy(instances);
+  indices.name("indices")
+    .useIndex()
+    .initAndCopy(std::vector<uint32_t>{0, 1, 2});
 
   depth.name("depth")
     .format(vk::Format::eD32Sfloat)
@@ -71,37 +52,21 @@ void Scene::initialize()
     .size(getResolution().x, getResolution().y)
     .init(&getCmdBuf());
 
-  shader.programName("indirectShader")
-    .vertexPath(GRASS_SHADERS_ROOT "indirect.vert.spv")
-    .fragmentPath(GRASS_SHADERS_ROOT "indirect.frag.spv")
-    .vertexFormat(sceneManager.getCompressedVertexFormatDescription())
+  shader.programName("grassShader")
+    .vertexPath(GRASS_SHADERS_ROOT "grass.vert.spv")
+    .fragmentPath(GRASS_SHADERS_ROOT "grass.frag.spv")
+    .vertexFormat(grassVtxFormat)
     .depthOutputFormat(depth.raw().getFormat())
-    .addColorAttachment(vk::Format::eB8G8R8A8Unorm);
-
-  textures.reserve(sceneManager.getImages().size());
-  for (const auto& img : sceneManager.getImages())
-  {
-    textures.emplace_back();
-    auto& tex = textures.back();
-    tex.name("albedo")
-      .size(img.width, img.height)
-      .data(&img.data.front())
-      .format(vk::Format::eR8G8B8A8Srgb)
-      .useSampled()
-      // .useTransferDst()
-      .init(&getCmdBuf());
-    shader.addPersistentBinding(tex, getDefaultSampler());
-  }
-
-  shader.init();
+    .addColorAttachment(vk::Format::eB8G8R8A8Unorm)
+  .init();
 }
 
 void Scene::render()
 {
   shader.dispatch(getCmdBuf())
-    .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
-    .indirect(indirect, indirectCount)
-    .bind(0, instanceInfo)
+    .geometry(vertices, indices)
+    .geomMapping(3)
+    .instanceCount(10000000)
     .attachAsDepth(depth)
     .pushVertex(getWorldViewProj())
     .attach(getScreenAttachment(), getResolution());

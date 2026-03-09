@@ -9,8 +9,8 @@ target_link_libraries(grass
         PRIVATE spaghetti_renderer)
 
 target_add_shaders(grass
-        shaders/indirect.frag
-        shaders/indirect.vert
+        shaders/grass.frag
+        shaders/grass.vert
 )
 
 add_compile_definitions(grass PRIVATE

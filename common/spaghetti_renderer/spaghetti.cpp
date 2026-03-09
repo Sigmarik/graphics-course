@@ -26,7 +26,7 @@ App::App()
   ImGuiRenderer::enableImGuiForWindow(mainWindow->native());
 
   mainCam.lookAt({0, 10, 10}, {0, 0, 0}, {0, 1, 0});
-  mainCam.zFar = 30.0f;
+  mainCam.zFar = 300.0f;
   mainCam.zNear = 0.05f;
 }
 
