@@ -1,0 +1,54 @@
+#pragma once
+
+#include <etna/GlobalContext.hpp>
+#include <etna/PerFrameCmdMgr.hpp>
+#include <glm/glm.hpp>
+#include <function2/function2.hpp>
+
+#include <gui/ImGuiRenderer.hpp>
+
+#include "wsi/Keyboard.hpp"
+
+#include "FramePacket.hpp"
+#include "WorldRenderer.hpp"
+
+
+using ResolutionProvider = fu2::unique_function<glm::uvec2() const>;
+
+namespace spg
+{
+class App;
+
+class Renderer
+{
+public:
+  explicit Renderer(glm::uvec2 resolution);
+  ~Renderer();
+
+  void initVulkan(std::span<const char*> instance_extensions);
+  void initFrameDelivery(vk::UniqueSurfaceKHR surface, ResolutionProvider res_provider);
+
+  void debugInput(const Keyboard& kb);
+  void drawGui(App& app);
+  void drawFrame(App& app);
+
+  etna::Window* getWindow() const { return window.get(); }
+
+  etna::Sampler& getSampler() const { return worldRenderer->getSampler(); }
+
+  etna::PerFrameCmdMgr& getCmdManager() const { return *commandManager; }
+
+private:
+  ResolutionProvider resolutionProvider;
+
+  std::unique_ptr<etna::Window> window;
+  std::unique_ptr<etna::PerFrameCmdMgr> commandManager;
+
+  glm::uvec2 resolution;
+  bool useVsync = true;
+
+  std::unique_ptr<ImGuiRenderer> guiRenderer;
+
+  std::unique_ptr<WorldRenderer> worldRenderer;
+};
+}
