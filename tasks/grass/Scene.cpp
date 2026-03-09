@@ -1,5 +1,7 @@
 #include "Scene.h"
 
+#include "imgui.h"
+
 struct GrassVertex
 {
   glm::vec3 pos;
@@ -66,8 +68,15 @@ void Scene::render()
   shader.dispatch(getCmdBuf())
     .geometry(vertices, indices)
     .geomMapping(3)
-    .instanceCount(10000000)
+    .instanceCount(numberOfGrassBlades)
     .attachAsDepth(depth)
     .pushVertex(getWorldViewProj())
     .attach(getScreenAttachment(), getResolution());
+}
+
+void Scene::renderGui()
+{
+  ImGui::SliderInt("Number of grass blades", (int*)&numberOfGrassBlades, 0, 10000000);
+  ImGui::SliderFloat("FOV", &mainCam.fov, 1, 120);
+  ImGui::SliderFloat("Camera far plane", &mainCam.zFar, 0.1f, 1000);
 }

@@ -48,6 +48,8 @@ protected:
   virtual void render() = 0;
   virtual void initialize() = 0;
 
+  Camera mainCam;
+
 private:
   void processInput(float dt);
   void drawFrame();
@@ -62,7 +64,6 @@ private:
   float camMoveSpeed = 1;
   float camRotateSpeed = 0.1f;
   float zoomSensitivity = 2.0f;
-  Camera mainCam;
 
   std::unique_ptr<Renderer> renderer;
 
