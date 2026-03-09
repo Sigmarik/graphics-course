@@ -20,21 +20,25 @@ layout (location = 0 ) out VS_OUT
 
 out gl_PerVertex { vec4 gl_Position; };
 
-vec2 intersectPlane(vec3 start, vec3 end, float planeY)
+vec2 intersectPlane(vec3 start, vec3 end)
 {
-    float t = -(start.y - planeY) / (end.y - start.y);
+    float t = -start.y / (end.y - start.y);
     return start.xz + t * (end.xz - start.xz);
+}
+
+vec2 intersectPlane(vec3 start, vec3 end, vec3 shift)
+{
+    return intersectPlane(start + shift, end + shift);
 }
 
 void viewRectangle(out vec2 bottomLeft, out vec2 bottomRight, out vec2 topLeft, out vec2 topRight)
 {
     mat4 invProjView = inverse(params.mProjView);
 
-    float span = 1.1;
-    vec4 bl = invProjView * vec4(-span, -span, -1.0, 1.0);
-    vec4 br = invProjView * vec4(span, -span, -1.0, 1.0);
-    vec4 tl = invProjView * vec4(-span, -span + 0.01, -1.0, 1.0);
-    vec4 tr = invProjView * vec4(span, -span + 0.01, -1.0, 1.0);
+    vec4 bl = invProjView * vec4(-1.0, -1.0, -1.0, 1.0);
+    vec4 br = invProjView * vec4(1.0, -1.0, -1.0, 1.0);
+    vec4 tl = invProjView * vec4(-1.0, -1.0 + 0.1, -1.0, 1.0);
+    vec4 tr = invProjView * vec4(1.0, -1.0 + 0.1, -1.0, 1.0);
 
     vec4 origin = invProjView * vec4(0.0, 0.0, 0.0, 1.0);
 
@@ -45,10 +49,14 @@ void viewRectangle(out vec2 bottomLeft, out vec2 bottomRight, out vec2 topLeft, 
 
     origin /= origin.w;
 
-    bottomLeft = intersectPlane(origin.xyz, bl.xyz, 0.0);
-    bottomRight = intersectPlane(origin.xyz, br.xyz, 0.0);
-    topLeft = intersectPlane(origin.xyz, tl.xyz, 0.0);
-    topRight = intersectPlane(origin.xyz, tr.xyz, 0.0);
+    float padding = 0.3;
+    vec3 paddingX = -normalize(tr.xyz - tl.xyz) * padding;
+    vec3 paddingY = -normalize(tr.xyz - br.xyz) * padding;
+
+    bottomLeft = intersectPlane(origin.xyz, bl.xyz, -paddingX - paddingY);
+    bottomRight = intersectPlane(origin.xyz, br.xyz, paddingX - paddingY);
+    topLeft = intersectPlane(origin.xyz, tl.xyz, -paddingX);
+    topRight = intersectPlane(origin.xyz, tr.xyz, paddingX);
 }
 
 uint cellIntegral(float bottomSize, float topSize, float bottomToTopDistance, float roughDistance)
