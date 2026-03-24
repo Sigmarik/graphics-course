@@ -51,13 +51,15 @@ void Texture::prepareForShaderRead(vk::CommandBuffer& cmd_buf, vk::PipelineStage
 {
   assert(m_inited);
 
+  const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+
   etna::set_state(
       cmd_buf,
       raw().get(),
       stage,
-      vk::AccessFlagBits2::eColorAttachmentRead,
+      vk::AccessFlagBits2::eShaderSampledRead,
       vk::ImageLayout::eShaderReadOnlyOptimal,
-      vk::ImageAspectFlagBits::eColor);
+      aspectMask);
 }
 
 void Texture::prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage)

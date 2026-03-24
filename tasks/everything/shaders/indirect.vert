@@ -9,6 +9,7 @@ layout(location = 3) in ivec3 vTangent;
 layout(push_constant) uniform params_t
 {
     mat4 mProjView;
+    mat4 mView;
 } params;
 
 struct InstanceInfo
@@ -49,6 +50,7 @@ void main(void)
 
     vOut.wPos   = (model * vec4(vPos, 1.0f)).xyz;
     vOut.wNorm  = normalize(mat3(transpose(inverse(model))) * wNorm.xyz);
+    vOut.wNorm = normalize((params.mView * vec4(vOut.wNorm, 0.0f)).xyz);
     vOut.wTangent = normalize(mat3(transpose(inverse(model))) * wTang.xyz);
     vOut.texCoord = vUv;
     vOut.fallbackDiffuse = instance.fallbackDiffuse;

@@ -3,7 +3,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 layout(binding = 0) uniform sampler2D iAlbedo;
-layout(binding = 1) uniform sampler2D iNormalEmissive;
+layout(binding = 1) uniform sampler2D iAO;
 
 layout(location = 0) out vec4 out_fragColor;
 
@@ -14,5 +14,7 @@ layout(location = 0) in VS_OUT
 
 void main()
 {
-    out_fragColor.rgb = texture(iAlbedo, surf.wPos / 2.0 + vec2(0.5)).rgb;
+    vec3 albedo = texture(iAlbedo, surf.wPos / 2.0 + vec2(0.5)).rgb;
+    float ao = texture(iAO, surf.wPos / 2.0 + vec2(0.5)).r;
+    out_fragColor.rgb = albedo * ao;
 }

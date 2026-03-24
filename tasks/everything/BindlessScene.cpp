@@ -92,6 +92,16 @@ void BindlessScene::init(spg::App& app)
 
 void BindlessScene::render(spg::App& app, DeferredTextureBunch& target)
 {
+  struct Matrices
+  {
+    glm::mat4 projView;
+    glm::mat4 view;
+  };
+
+  Matrices matrices;
+  matrices.projView = app.getWorldViewProj();
+  matrices.view = app.getWorldView();
+
   shader.dispatch(app.getCmdBuf())
     .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
     .indirect(indirect, indirectCount)
@@ -99,5 +109,5 @@ void BindlessScene::render(spg::App& app, DeferredTextureBunch& target)
     .attachAsDepth(target.depth)
     .attach(target.albedo)
     .attach(target.normalEmissive)
-    .pushVertex(app.getWorldViewProj());
+    .pushVertex(matrices);
 }

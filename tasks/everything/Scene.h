@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BindlessScene.h"
+#include "SSAO.h"
 #include "scene/SceneManager.hpp"
 
 #include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
@@ -15,9 +16,13 @@ protected:
   void initialize() override;
   void render() override;
 
+  void renderGui() override;
+
 private:
   BindlessScene bindless{};
   DeferredTextureBunch deferred{};
+
+  SSAO ssao{};
 
   spg::FragmentOnlyShader lightMixer{};
 };

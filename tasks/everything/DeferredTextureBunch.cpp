@@ -5,6 +5,7 @@ void DeferredTextureBunch::init(vk::CommandBuffer* cmdBuf)
   depth
     .size(res.x, res.y)
     .useDepthStencil()
+    .useSampled()
     .format(DEPTH_FORMAT)
     .name("depth")
     .init(cmdBuf);

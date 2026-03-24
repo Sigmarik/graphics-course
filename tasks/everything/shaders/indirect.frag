@@ -24,6 +24,7 @@ void main()
         surf.fallbackDiffuse :
         texture(textures[nonuniformEXT(surf.texId - 1)], surf.texCoord).rgb;
 
-    out_albedo = vec4(surfaceColor, 1.0f);
+//    out_albedo = vec4(surfaceColor, 1.0f);
+    out_albedo = vec4(1.0f);
     out_normalEmissive = vec4(surf.wNorm * 0.5 + 0.5, 0.0f);
 }
