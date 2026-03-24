@@ -23,7 +23,7 @@ layout(push_constant) uniform PushConstants
     mat4 invProj;
 } pc;
 
-const float RADIUS = 0.04;
+const float RADIUS = 0.03;
 const uint SAMPLE_COUNT = 64;
 const float BIAS = 0.01;
 
@@ -87,7 +87,7 @@ void main()
         float occluderZ = viewOccluder.z / viewOccluder.w;
 
         // Compare depths (occluder closer than sample + bias)
-        if (occluderZ > samplePos.z + BIAS) {
+        if (occluderZ > samplePos.z + BIAS || occluderZ < samplePos.z - RADIUS) {
             ao += 1.0;
         }
     }

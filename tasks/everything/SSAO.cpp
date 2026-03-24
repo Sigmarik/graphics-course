@@ -10,7 +10,7 @@ static glm::vec3 randomPositiveZ()
   glm::vec3 vec;
   vec.x = randomFloat(-1.0f, 1.0f);
   vec.y = randomFloat(-1.0f, 1.0f);
-  vec.z = randomFloat(-0.0f, 1.0f);
+  vec.z = randomFloat(-0.01f, 1.0f);
   return vec;
 }
 
