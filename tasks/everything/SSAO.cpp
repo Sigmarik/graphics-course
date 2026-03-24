@@ -2,15 +2,18 @@
 
 static float randomFloat(float min, float max)
 {
-  return rand() / (float)RAND_MAX * (max - min) + min;
+  return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
 static glm::vec3 randomPositiveZ()
 {
-  glm::vec3 vec;
-  vec.x = randomFloat(-1.0f, 1.0f);
-  vec.y = randomFloat(-1.0f, 1.0f);
-  vec.z = randomFloat(-0.01f, 1.0f);
+  glm::vec3 vec(10);
+  while (glm::length(vec) > 1.0)
+  {
+    vec.x = randomFloat(-1.0f, 1.0f);
+    vec.y = randomFloat(-1.0f, 1.0f);
+    vec.z = randomFloat(-0.0f, 1.0f);
+  }
   return vec;
 }
 
@@ -48,7 +51,7 @@ void SSAO::init(spg::App& app)
     kernelVecs[id] = glm::vec4(randomPositiveZ(), 0.0);
   }
 
-  kernelVectors.initAndCopy(kernelVecs);
+  kernelVectors.useStorage().initAndCopy(kernelVecs);
 }
 
 void SSAO::render(spg::App& app, spg::Texture& depth, spg::Texture& normal)

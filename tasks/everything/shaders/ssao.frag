@@ -25,7 +25,7 @@ layout(push_constant) uniform PushConstants
 
 const float RADIUS = 0.03;
 const uint SAMPLE_COUNT = 64;
-const float BIAS = 0.01;
+const float BIAS = 0.001;
 
 float random(vec2 uv)
 {
@@ -63,7 +63,8 @@ void main()
     float ao = 0.0;
 
     // 4. Sample the kernel
-    for (uint i = 0; i < SAMPLE_COUNT; ++i) {
+    for (uint i = 0; i < SAMPLE_COUNT; ++i)
+    {
         // Transform kernel direction from tangent space to view space
         vec3 kernelVector = iKernelVectors[i];
         vec3 sampleDir = T_rot * kernelVector.x + B_rot * kernelVector.y + N * kernelVector.z;
@@ -73,6 +74,8 @@ void main()
         vec4 clipSample = pc.proj * vec4(samplePos, 1.0);
         vec3 ndcSample = clipSample.xyz / clipSample.w;
         vec2 uvSample = ndcSample.xy * 0.5 + 0.5;
+
+        bool outOfFrame = max(abs(ndcSample.x), max(abs(ndcSample.y), abs(ndcSample.z))) > 1.0;
 
         // Discard samples outside the screen
         if (uvSample.x < 0.0 || uvSample.x > 1.0 ||
@@ -87,7 +90,10 @@ void main()
         float occluderZ = viewOccluder.z / viewOccluder.w;
 
         // Compare depths (occluder closer than sample + bias)
-        if (occluderZ > samplePos.z + BIAS || occluderZ < samplePos.z - RADIUS) {
+        bool notOccluded = occluderZ > samplePos.z - BIAS;
+        bool depthFiltered = occluderZ < samplePos.z - RADIUS;
+        if (outOfFrame || notOccluded || depthFiltered)
+        {
             ao += 1.0;
         }
     }
