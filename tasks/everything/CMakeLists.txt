@@ -14,6 +14,7 @@ target_link_libraries(everything
 target_add_shaders(everything
         shaders/combine_lighting.frag
         shaders/ssao.frag
+        shaders/fxaa.frag
         shaders/spatial_denoise.frag
         shaders/indirect.frag
         shaders/indirect.vert

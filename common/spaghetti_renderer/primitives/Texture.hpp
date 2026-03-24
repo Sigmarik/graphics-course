@@ -5,6 +5,7 @@
 #include <etna/Image.hpp>
 #include <etna/RenderTargetStates.hpp>
 #include <etna/Sampler.hpp>
+#include <glm/vec2.hpp>
 
 
 namespace spg
@@ -26,6 +27,14 @@ public:
     assert(!m_inited);
     m_width = width;
     m_height = height;
+    return *this;
+  }
+
+  Texture& size(glm::uvec2 size)
+  {
+    assert(!m_inited);
+    m_width = size.x;
+    m_height = size.y;
     return *this;
   }
 

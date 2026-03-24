@@ -16,5 +16,5 @@ void main()
 {
     vec3 albedo = texture(iAlbedo, surf.wPos / 2.0 + vec2(0.5)).rgb;
     float ao = texture(iAO, surf.wPos / 2.0 + vec2(0.5)).r;
-    out_fragColor.rgb = albedo * ao;
+    out_fragColor.rgb = albedo * (ao * ao);
 }

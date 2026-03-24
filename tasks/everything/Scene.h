@@ -25,4 +25,7 @@ private:
   SSAO ssao{};
 
   spg::FragmentOnlyShader lightMixer{};
+  spg::Texture aliasedScene{};
+
+  spg::FragmentOnlyShader fxaaShader{};
 };
