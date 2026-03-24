@@ -5,7 +5,7 @@ void DeferredTextureBunch::init(vk::CommandBuffer* cmdBuf)
   depth
     .size(res.x, res.y)
     .useDepthStencil()
-    .format(vk::Format::eD32Sfloat)
+    .format(DEPTH_FORMAT)
     .name("depth")
     .init(cmdBuf);
 
@@ -13,7 +13,7 @@ void DeferredTextureBunch::init(vk::CommandBuffer* cmdBuf)
     .size(res.x, res.y)
     .useColorAttachment()
     .useSampled()
-    .format(vk::Format::eR8G8B8A8Unorm)
+    .format(ALBEDO_FORMAT)
     .name("albedo")
     .init(cmdBuf);
 
@@ -21,7 +21,7 @@ void DeferredTextureBunch::init(vk::CommandBuffer* cmdBuf)
     .size(res.x, res.y)
     .useColorAttachment()
     .useSampled()
-    .format(vk::Format::eR16G16B16A16Sfloat)
+    .format(NORMAL_EMISSIVE_FORMAT)
     .name("normalEmissive")
     .init(cmdBuf);
 }

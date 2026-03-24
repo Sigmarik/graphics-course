@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BindlessScene.h"
 #include "scene/SceneManager.hpp"
 
 #include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
@@ -15,14 +16,8 @@ protected:
   void render() override;
 
 private:
-  std::vector<spg::Texture> textures;
-  spg::Buffer instanceInfo;
-  spg::Buffer indirect;
+  BindlessScene bindless{};
+  DeferredTextureBunch deferred{};
 
-  spg::Texture depth;
-  spg::VertexFragmentShader shader;
-
-  uint32_t indirectCount = 0;
-
-  SceneManager sceneManager;
+  spg::FragmentOnlyShader lightMixer{};
 };

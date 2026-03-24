@@ -6,19 +6,19 @@
 #include <spaghetti_renderer/primitives/VertexFragmentShader.hpp>
 
 #include <spaghetti_renderer/spaghetti.hpp>
+#include "DeferredTextureBunch.h"
 
-class Scene : public spg::App
+class BindlessScene
 {
-protected:
-  void initialize() override;
-  void render() override;
+public:
+  void init(spg::App& app);
+  void render(spg::App& app, DeferredTextureBunch& target);
 
 private:
   std::vector<spg::Texture> textures;
   spg::Buffer instanceInfo;
   spg::Buffer indirect;
 
-  spg::Texture depth;
   spg::VertexFragmentShader shader;
 
   uint32_t indirectCount = 0;
