@@ -77,6 +77,5 @@ void SSAO::render(spg::App& app, spg::Texture& depth, spg::Texture& normal)
     .bind(0, noisyAo, app.getDefaultSampler())
     .bind(1, depth, app.getDefaultSampler())
     .bind(2, normal, app.getDefaultSampler())
-    .push(matrices)
     .attach(ao);
 }

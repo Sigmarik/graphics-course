@@ -8,7 +8,7 @@ layout(binding = 2) uniform sampler2D iNormal;
 
 layout(location = 0) out vec4 out_fragColor;
 
-const int RADIUS = 3;
+const int RADIUS = 4;
 
 layout(location = 0) in VS_OUT
 {
