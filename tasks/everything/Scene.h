@@ -22,10 +22,16 @@ private:
   BindlessScene bindless{};
   DeferredTextureBunch deferred{};
 
+  spg::FragmentOnlyShader directLightingShader{};
+
   SSAO ssao{};
 
+  Camera shadowCamera{};
+
+  spg::Texture shadowMap{};
   spg::FragmentOnlyShader lightMixer{};
   spg::Texture aliasedScene{};
+  spg::Texture directLight{};
 
   spg::FragmentOnlyShader fxaaShader{};
 };

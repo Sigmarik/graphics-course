@@ -115,6 +115,8 @@ VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attach(const etn
 VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attachAsDepth(Texture& texture)
 {
   depthAttachment = {.image = texture.raw().get(), .view = texture.raw().getView({})};
+  resolutionX = texture.raw().getExtent().width;
+  resolutionY = texture.raw().getExtent().height;
   return *this;
 }
 

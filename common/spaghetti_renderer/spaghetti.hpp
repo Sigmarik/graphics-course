@@ -25,9 +25,17 @@ public:
   friend class Renderer;
   friend class WorldRenderer;
 
-  glm::mat4 getWorldView() const { return worldView; }
-  glm::mat4 getWorldInvProj() const { return worldInvProj; }
-  glm::mat4 getWorldViewProj() const { return worldViewProj; }
+  glm::mat4 getWorldView() const { return getCam().viewTm(); }
+  glm::mat4 getWorldInvProj() const
+  {
+    const float aspect = float(mainWindow->getResolution().x) / float(mainWindow->getResolution().y);
+    return glm::inverse(getCam().projTm(aspect));
+  }
+  glm::mat4 getWorldViewProj() const
+  {
+    const float aspect = float(mainWindow->getResolution().x) / float(mainWindow->getResolution().y);
+    return getCam().projTm(aspect) * getCam().viewTm();
+  }
 
   vk::CommandBuffer& getCmdBuf() const { return *currentCmdBuf; }
 
@@ -43,12 +51,19 @@ public:
 
   etna::Sampler& getDefaultSampler() const { return renderer->getSampler(); }
 
+  void overrideCamera(Camera& camera) { camOverride = &camera; }
+  void clearCameraOverride() { camOverride = nullptr; }
+
 protected:
   virtual void renderGui() {}
   virtual void render() = 0;
   virtual void initialize() = 0;
 
+  Camera& getCam() { return camOverride != nullptr ? *camOverride : mainCam; }
+  const Camera& getCam() const { return camOverride != nullptr ? *camOverride : mainCam; }
+
   Camera mainCam;
+  Camera* camOverride = nullptr;
 
 private:
   void processInput(float dt);
@@ -66,10 +81,6 @@ private:
   float zoomSensitivity = 2.0f;
 
   std::unique_ptr<Renderer> renderer;
-
-  glm::mat4 worldView;
-  glm::mat4 worldInvProj;
-  glm::mat4 worldViewProj;
 
   vk::CommandBuffer* currentCmdBuf;
   vk::Image* currentTargetImage;

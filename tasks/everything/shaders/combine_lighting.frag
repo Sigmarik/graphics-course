@@ -4,6 +4,7 @@
 
 layout(binding = 0) uniform sampler2D iAlbedo;
 layout(binding = 1) uniform sampler2D iAO;
+layout(binding = 2) uniform sampler2D iDirectLight;
 
 layout(location = 0) out vec4 out_fragColor;
 
@@ -14,7 +15,9 @@ layout(location = 0) in VS_OUT
 
 void main()
 {
-    vec3 albedo = texture(iAlbedo, surf.wPos / 2.0 + vec2(0.5)).rgb;
-    float ao = texture(iAO, surf.wPos / 2.0 + vec2(0.5)).r;
-    out_fragColor.rgb = albedo * (ao * ao);
+    vec2 uv = surf.wPos / 2.0 + vec2(0.5);   // texture coordinates
+    vec3 albedo = texture(iAlbedo, uv).rgb;
+    float ao = texture(iAO, uv).r;
+    float direct = texture(iDirectLight, uv).r;
+    out_fragColor.rgb = albedo * (ao * ao + direct);
 }

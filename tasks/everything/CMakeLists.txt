@@ -15,9 +15,12 @@ target_add_shaders(everything
         shaders/combine_lighting.frag
         shaders/ssao.frag
         shaders/fxaa.frag
+        shaders/direct_light.frag
         shaders/spatial_denoise.frag
         shaders/indirect.frag
+        shaders/indirect_depth.frag
         shaders/indirect.vert
+        shaders/indirect_shadow_map.vert
 )
 
 add_compile_definitions(everything PRIVATE

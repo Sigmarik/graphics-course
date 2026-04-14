@@ -83,11 +83,6 @@ void App::drawFrame()
 {
   ZoneScoped;
 
-  const float aspect = float(mainWindow->getResolution().x) / float(mainWindow->getResolution().y);
-  worldView = mainCam.viewTm();
-  worldInvProj = glm::inverse(mainCam.projTm(aspect));
-  worldViewProj = mainCam.projTm(aspect) * mainCam.viewTm();
-
   renderer->drawGui(*this);
   renderer->drawFrame(*this);
 }

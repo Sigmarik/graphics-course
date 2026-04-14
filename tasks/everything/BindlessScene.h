@@ -13,6 +13,7 @@ class BindlessScene
 public:
   void init(spg::App& app);
   void render(spg::App& app, DeferredTextureBunch& target);
+  void renderShadowMap(spg::App& app, const Camera& camera, spg::Texture& target);
 
 private:
   std::vector<spg::Texture> textures;
@@ -20,6 +21,7 @@ private:
   spg::Buffer indirect;
 
   spg::VertexFragmentShader shader;
+  spg::VertexFragmentShader depthOnlyShader;
 
   uint32_t indirectCount = 0;
 

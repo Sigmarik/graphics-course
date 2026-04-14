@@ -21,7 +21,7 @@ void BindlessScene::init(spg::App& app)
   std::vector<vk::DrawIndexedIndirectCommand> drawCommands;
   std::vector<InstanceInfo> instances;
 
-  // Man do I LOVE fucking with GLFT models! They have SUCH A NICE structure,
+  // Man do I LOVE fucking with GLFT models! Their standard is SO NICE,
   // I totally do not need to bend over backwards and spread my ass cheeks to
   // do the simplest of procedures with the thing.
   for (size_t meshIdx = 0; meshIdx < meshes.size(); ++meshIdx)
@@ -73,6 +73,13 @@ void BindlessScene::init(spg::App& app)
     .addColorAttachment(DeferredTextureBunch::ALBEDO_FORMAT)
     .addColorAttachment(DeferredTextureBunch::NORMAL_EMISSIVE_FORMAT);
 
+  depthOnlyShader.programName("indirectDepthOnlyShader")
+    .vertexPath(EVERYTHING_SHADERS_ROOT "indirect_shadow_map.vert.spv")
+    .fragmentPath(EVERYTHING_SHADERS_ROOT "indirect_depth.frag.spv")
+    .vertexFormat(sceneManager.getCompressedVertexFormatDescription())
+    .depthOutputFormat(DeferredTextureBunch::DEPTH_FORMAT)
+    .init();
+
   textures.reserve(sceneManager.getImages().size());
   for (const auto& img : sceneManager.getImages())
   {
@@ -90,14 +97,14 @@ void BindlessScene::init(spg::App& app)
   shader.init();
 }
 
+struct Matrices
+{
+  glm::mat4 projView;
+  glm::mat4 view;
+};
+
 void BindlessScene::render(spg::App& app, DeferredTextureBunch& target)
 {
-  struct Matrices
-  {
-    glm::mat4 projView;
-    glm::mat4 view;
-  };
-
   Matrices matrices;
   matrices.projView = app.getWorldViewProj();
   matrices.view = app.getWorldView();
@@ -109,5 +116,19 @@ void BindlessScene::render(spg::App& app, DeferredTextureBunch& target)
     .attachAsDepth(target.depth)
     .attach(target.albedo)
     .attach(target.normalEmissive)
+    .pushVertex(matrices);
+}
+
+void BindlessScene::renderShadowMap(spg::App& app, const Camera& shadowCamera, spg::Texture& target)
+{
+  Matrices matrices;
+  matrices.projView = shadowCamera.projTm(1.0f) * shadowCamera.viewTm();
+  matrices.view = shadowCamera.viewTm();
+
+  depthOnlyShader.dispatch(app.getCmdBuf())
+    .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
+    .indirect(indirect, indirectCount)
+    .bind(0, instanceInfo)
+    .attachAsDepth(target)
     .pushVertex(matrices);
 }
