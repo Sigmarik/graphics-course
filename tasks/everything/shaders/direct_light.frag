@@ -1,10 +1,10 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
-#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : enable
 
 layout(binding = 0) uniform sampler2D iDepth;
 layout(binding = 1) uniform sampler2D iNormal;
-layout(binding = 2) uniform sampler2D iShadowmap;
+layout(set = 1, binding = 0) uniform sampler2D iShadowmaps[];
 
 layout(location = 0) in VS_OUT
 {
@@ -46,10 +46,17 @@ float light_balance(vec3 worldPos)
     vec3 lightNDC = lightClipPos.xyz / lightClipPos.w;
     float requiredDepth = lightNDC.z;
     vec2 lightPos2d = spread_clip_pos(lightNDC.xy);
-    vec2 lightUV = lightPos2d * 0.5 + 0.5;
     float realDepth = 1;
+
+    uint smapIndex = 0;
+    for (; smapIndex < 4; ++smapIndex)
+    {
+        if (abs(lightPos2d.x) <= 1 && abs(lightPos2d.y) <= 1) break;
+        lightPos2d /= 3;
+    }
+    vec2 lightUV = lightPos2d * 0.5 + 0.5;
     if (lightUV.x > 0 && lightUV.y > 0 && lightUV.x < 1 && lightUV.y < 1)
-        realDepth = texture(iShadowmap, lightUV).r;
+        realDepth = texture(iShadowmaps[smapIndex], lightUV).r;
     return realDepth - requiredDepth;
 }
 

@@ -3,6 +3,7 @@ add_executable(everything
         Scene.cpp
         DeferredTextureBunch.cpp
         BindlessScene.cpp
+        ShadowMap.cpp
         SSAO.cpp
 )
 

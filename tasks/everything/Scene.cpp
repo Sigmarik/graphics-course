@@ -16,13 +16,6 @@ void Scene::initialize()
     .useSampled()
     .init(&getCmdBuf());
 
-  shadowMap.name("shadowMap")
-    .size(glm::uvec2(1024, 1024))
-    .format(vk::Format::eD32Sfloat)
-    .useDepthStencil()
-    .useSampled()
-    .init(&getCmdBuf());
-
   directLight.name("directLighting")
     .size(getResolution().x, getResolution().y)
     .format(vk::Format::eR16Sfloat)
@@ -30,10 +23,16 @@ void Scene::initialize()
     .useSampled()
     .init(&getCmdBuf());
 
+  shadowMap.init(*this);
+
   directLightingShader
     .shaderPath(EVERYTHING_SHADERS_ROOT "/direct_light.frag.spv")
-    .addColorAttachment(directLight.getFormat())
-    .init();
+    .addColorAttachment(directLight.getFormat());
+  for (unsigned smapIdx = 0; smapIdx < ShadowMap::NUM_LEVELS; ++smapIdx)
+  {
+    directLightingShader.addPersistentBinding(shadowMap.getTexture(smapIdx), getDefaultSampler());
+  }
+  directLightingShader.init();
 
   lightMixer
     .shaderPath(EVERYTHING_SHADERS_ROOT "/combine_lighting.frag.spv")
@@ -44,21 +43,14 @@ void Scene::initialize()
     .shaderPath(EVERYTHING_SHADERS_ROOT "/fxaa.frag.spv")
     .addColorAttachment(vk::Format::eB8G8R8A8Unorm)
     .init();
-
-  shadowCamera.lookAt(glm::vec3(100, 100, 100), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-  shadowCamera.orthographic = true;
 }
 
 void Scene::render()
 {
   bindless.render(*this, deferred);
 
-  glm::vec3 shadowCameraPosition = getCam().position - shadowCamera.forward() * 500.0f;
-  shadowCamera.setPixelAccuratePosition(shadowCameraPosition, glm::uvec2(1024, 1024));
-
-  overrideCamera(shadowCamera);
-  bindless.renderShadowMap(*this, shadowCamera, shadowMap);
-  clearCameraOverride();
+  shadowMap.updateCameraPositions(getCam().position);
+  bindless.renderShadowMap(*this, shadowMap);
 
   ssao.render(*this, deferred.depth, deferred.normalEmissive);
 
@@ -70,14 +62,14 @@ void Scene::render()
     glm::mat4 lightInvView;
   };
   CombinedMatrices combinedMatrices;
+  Camera& shadowCam = shadowMap.getCamera(0);
   combinedMatrices.invProjView = glm::inverse(getWorldViewProj());
-  combinedMatrices.lightProjView = shadowCamera.projTm(1.0f) * shadowCamera.viewTm();
+  combinedMatrices.lightProjView = shadowCam.projTm(1.0f) * shadowCam.viewTm();
   combinedMatrices.invView = glm::inverse(getWorldView());
-  combinedMatrices.lightInvView = glm::inverse(shadowCamera.viewTm());
+  combinedMatrices.lightInvView = glm::inverse(shadowCam.viewTm());
   directLightingShader.dispatch(getCmdBuf())
     .bind(0, deferred.depth, getDefaultSampler())
     .bind(1, deferred.normalEmissive, getDefaultSampler())
-    .bind(2, shadowMap, getDefaultSampler())
     .push(combinedMatrices)
     .attach(directLight);
 

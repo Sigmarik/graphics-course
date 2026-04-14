@@ -7,13 +7,14 @@
 
 #include <spaghetti_renderer/spaghetti.hpp>
 #include "DeferredTextureBunch.h"
+#include "ShadowMap.h"
 
 class BindlessScene
 {
 public:
   void init(spg::App& app);
   void render(spg::App& app, DeferredTextureBunch& target);
-  void renderShadowMap(spg::App& app, const Camera& camera, spg::Texture& target);
+  void renderShadowMap(spg::App& app, ShadowMap& target);
 
 private:
   std::vector<spg::Texture> textures;

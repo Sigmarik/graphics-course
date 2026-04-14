@@ -2,11 +2,10 @@
 
 #include "BindlessScene.h"
 #include "SSAO.h"
-#include "scene/SceneManager.hpp"
+#include "ShadowMap.h"
 
 #include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
 #include <spaghetti_renderer/primitives/VertexFragmentShader.hpp>
-
 
 #include <spaghetti_renderer/spaghetti.hpp>
 
@@ -26,9 +25,7 @@ private:
 
   SSAO ssao{};
 
-  Camera shadowCamera{};
-
-  spg::Texture shadowMap{};
+  ShadowMap shadowMap{};
   spg::FragmentOnlyShader lightMixer{};
   spg::Texture aliasedScene{};
   spg::Texture directLight{};

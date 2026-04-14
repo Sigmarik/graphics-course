@@ -119,16 +119,20 @@ void BindlessScene::render(spg::App& app, DeferredTextureBunch& target)
     .pushVertex(matrices);
 }
 
-void BindlessScene::renderShadowMap(spg::App& app, const Camera& shadowCamera, spg::Texture& target)
+void BindlessScene::renderShadowMap(spg::App& app, ShadowMap& target)
 {
-  Matrices matrices;
-  matrices.projView = shadowCamera.projTm(1.0f) * shadowCamera.viewTm();
-  matrices.view = shadowCamera.viewTm();
+  for (unsigned idx = 0; idx < ShadowMap::NUM_LEVELS; ++idx)
+  {
+    Matrices matrices;
+    Camera& cam = target.getCamera(idx);
+    matrices.projView = cam.projTm(1.0f) * cam.viewTm();
+    matrices.view = cam.viewTm();
 
-  depthOnlyShader.dispatch(app.getCmdBuf())
-    .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
-    .indirect(indirect, indirectCount)
-    .bind(0, instanceInfo)
-    .attachAsDepth(target)
-    .pushVertex(matrices);
+    depthOnlyShader.dispatch(app.getCmdBuf())
+      .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
+      .indirect(indirect, indirectCount)
+      .bind(0, instanceInfo)
+      .attachAsDepth(target.getTexture(idx))
+      .pushVertex(matrices);
+  }
 }
