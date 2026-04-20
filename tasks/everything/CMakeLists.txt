@@ -5,6 +5,7 @@ add_executable(everything
         BindlessScene.cpp
         ShadowMap.cpp
         SSAO.cpp
+        Fog.cpp
 )
 
 target_include_directories(everything PUBLIC ..)
@@ -16,6 +17,7 @@ target_add_shaders(everything
         shaders/combine_lighting.frag
         shaders/ssao.frag
         shaders/fxaa.frag
+        shaders/fog.frag
         shaders/direct_light.frag
         shaders/spatial_denoise.frag
         shaders/indirect.frag

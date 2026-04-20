@@ -14,6 +14,8 @@ public:
 
   Camera& getCamera(unsigned level) { return m_cameras[level]; }
   spg::Texture& getTexture(unsigned level) { return m_textures[level]; }
+  const Camera& getCamera(unsigned level) const { return m_cameras[level]; }
+  const spg::Texture& getTexture(unsigned level) const { return m_textures[level]; }
 
   static constexpr unsigned NUM_LEVELS = 4;
   static constexpr unsigned MAP_RESOLUTION = 1024;

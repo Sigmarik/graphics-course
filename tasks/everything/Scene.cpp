@@ -34,6 +34,8 @@ void Scene::initialize()
   }
   directLightingShader.init();
 
+  fog.init(*this, shadowMap);
+
   lightMixer
     .shaderPath(EVERYTHING_SHADERS_ROOT "/combine_lighting.frag.spv")
     .addColorAttachment(aliasedScene.getFormat())
@@ -73,10 +75,13 @@ void Scene::render()
     .push(combinedMatrices)
     .attach(directLight);
 
+  fog.render(*this, shadowMap, deferred.depth);
+
   lightMixer.dispatch(getCmdBuf())
     .bind(0, deferred.albedo, getDefaultSampler())
     .bind(1, ssao.getAo(), getDefaultSampler())
     .bind(2, directLight, getDefaultSampler())
+    .bind(3, fog.getTexture(), getDefaultSampler())
     .attach(aliasedScene);
 
   fxaaShader.dispatch(getCmdBuf())

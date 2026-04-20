@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BindlessScene.h"
+#include "Fog.h"
 #include "SSAO.h"
 #include "ShadowMap.h"
 
@@ -22,6 +23,8 @@ private:
   DeferredTextureBunch deferred{};
 
   spg::FragmentOnlyShader directLightingShader{};
+
+  Fog fog{};
 
   SSAO ssao{};
 

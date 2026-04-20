@@ -5,6 +5,7 @@
 layout(binding = 0) uniform sampler2D iAlbedo;
 layout(binding = 1) uniform sampler2D iAO;
 layout(binding = 2) uniform sampler2D iDirectLight;
+layout(binding = 3) uniform sampler2D iFog;
 
 layout(location = 0) out vec4 out_fragColor;
 
@@ -19,5 +20,10 @@ void main()
     vec3 albedo = texture(iAlbedo, uv).rgb;
     float ao = texture(iAO, uv).r;
     float direct = texture(iDirectLight, uv).r;
-    out_fragColor.rgb = albedo * (ao * ao + direct);
+    vec4 fog = texture(iFog, uv);
+
+    vec3 rawColor = albedo * (ao * ao + direct);
+    rawColor *= fog.a;
+    rawColor += fog.xyz;
+    out_fragColor = vec4(rawColor, 1.0);
 }
