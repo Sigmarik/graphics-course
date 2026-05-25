@@ -7,6 +7,11 @@ const float RANGE = 16;
 
 layout(binding = 0) uniform sampler2D iSource;
 
+layout(push_constant) uniform params_t
+{
+    uint enableFXAA;
+} params;
+
 layout(location = 0) in VS_OUT
 {
     vec2 wPos;  // NDC coordinates in [-1,1] (Y up)
@@ -33,6 +38,12 @@ float difference(float b1, float b2)
 void main()
 {
     vec2 uv = surf.wPos * 0.5 + 0.5;
+    if (params.enableFXAA == 0)
+    {
+        out_fragColor = texture(iSource, uv);
+        return;
+    }
+
     vec2 texelSize = 1.0 / vec2(textureSize(iSource, 0));
 
     float coreBrightness = brightnessAt(uv);

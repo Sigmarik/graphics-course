@@ -59,7 +59,10 @@ void Scene::render()
   shadowMap.updateCameraPositions(getCam().position);
   bindless.renderShadowMap(*this, shadowMap);
 
-  ssao.render(*this, deferred.depth, deferred.normalEmissive);
+  if (enableSSAO)
+  {
+    ssao.render(*this, deferred.depth, deferred.normalEmissive);
+  }
 
   struct CombinedMatrices
   {
@@ -86,12 +89,19 @@ void Scene::render()
   {
     glm::mat4 invProjView;
     glm::vec4 cameraPos;
+    uint32_t enableSSAO;
+    uint32_t enableSSSS;
   };
   LightMixerParams lightMixerParams;
   lightMixerParams.invProjView = glm::inverse(getWorldViewProj());
   lightMixerParams.cameraPos = glm::vec4(getCam().position, 1.0f);
+  lightMixerParams.enableSSAO = enableSSAO;
+  lightMixerParams.enableSSSS = enableSSSS;
 
-  subsurface.render(*this, directLight, deferred.depth, deferred.normalEmissive);
+  if (enableSSSS)
+  {
+    subsurface.render(*this, directLight, deferred.depth, deferred.normalEmissive);
+  }
 
   lightMixer.dispatch(getCmdBuf())
     .bind(0, deferred.albedo, getDefaultSampler())
@@ -105,11 +115,20 @@ void Scene::render()
     .push(lightMixerParams)
     .attach(aliasedScene);
 
+  struct FxaaParams
+  {
+    uint32_t enableFXAA;
+  } fxaaParams{enableFXAA};
+
   fxaaShader.dispatch(getCmdBuf())
     .bind(0, aliasedScene, getDefaultSampler())
+    .push(fxaaParams)
     .attach(getScreenAttachment(), getResolution());
 }
 
 void Scene::renderGui()
 {
+  ImGui::Checkbox("Enable FXAA", &enableFXAA);
+  ImGui::Checkbox("Enable SSAO", &enableSSAO);
+  ImGui::Checkbox("Enable SSSS", &enableSSSS);
 }

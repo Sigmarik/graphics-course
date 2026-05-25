@@ -15,6 +15,8 @@ layout(push_constant) uniform params_t
 {
     mat4 invProjView;
     vec4 cameraPos;
+    uint enableSSAO;
+    uint enableSSSS;
 } params;
 
 layout(location = 0) out vec4 out_fragColor;
@@ -61,11 +63,11 @@ void main()
 
     vec2 uv = surf.wPos / 2.0 + vec2(0.5);   // texture coordinates
     vec3 albedo = texture(iAlbedo, uv).rgb;
-    float ao = texture(iAO, uv).r * brightnessBoost;
+    float ao = params.enableSSAO != 0 ? texture(iAO, uv).r * brightnessBoost : 1.0 * brightnessBoost;
     float direct = texture(iDirectLight, uv).r * brightnessBoost;
     vec4 fog = texture(iFog, uv);
     float depth = texture(iDepth, uv).r;
-    float subsurface = texture(iSubsurface, uv).r;
+    float subsurface = params.enableSSSS != 0 ? texture(iSubsurface, uv).r : direct;
 
     vec4 pos = params.invProjView * vec4(surf.wPos, depth, 1.0);
     vec3 dir = normalize(pos.xyz / pos.w - params.cameraPos.xyz);
