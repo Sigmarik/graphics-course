@@ -253,6 +253,7 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         .indexOffset = static_cast<std::uint32_t>(result.indices.size()),
         .indexCount = static_cast<std::uint32_t>(accessors[0]->count),
         .albedoTextureIndex = texIdx,
+        .fallbackDiffuse = {},
       });
 
       const std::size_t vertexCount = accessors[1]->count;

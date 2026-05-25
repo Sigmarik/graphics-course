@@ -14,11 +14,11 @@
 // of a certain pipeline with specific bindings (including material data)
 struct RenderElement
 {
-  std::uint32_t vertexOffset;
-  std::uint32_t indexOffset;
-  std::uint32_t indexCount;
-  std::uint32_t albedoTextureIndex;
-  glm::vec3 fallbackDiffuse;
+  std::uint32_t vertexOffset{};
+  std::uint32_t indexOffset{};
+  std::uint32_t indexCount{};
+  std::uint32_t albedoTextureIndex{};
+  glm::vec3 fallbackDiffuse{};
   // Not implemented!
   // Material* material;
 };
