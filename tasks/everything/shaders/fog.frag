@@ -120,7 +120,7 @@ void main()
         float stepDistance = (thisInterpParam - prevInterpParam) * rayLength;
         vec3 currentWorldPos = camPos + camVector * thisInterpParam * rayLength;
 
-        float thisPointDensity = 0.06;
+        float thisPointDensity = 0.5;
 
         bool inLight = bool(light_balance(currentWorldPos) > 0.0);
         vec3 light = FOG_COLOR * WORLD_AMBIENT;

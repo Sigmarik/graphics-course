@@ -1,5 +1,7 @@
 #include "Texture.hpp"
 
+#include <stb_image.h>
+
 namespace spg
 {
 
@@ -18,6 +20,30 @@ Texture& Texture::data(const unsigned char* data)
 {
   m_bytes = data;
   return *this;
+}
+
+Texture Texture::loadFromPng(std::filesystem::path path, vk::CommandBuffer& cmdBuffer)
+{
+  int imageWidth = 0;
+  int imageHeight = 0;
+  int imageChannels = 0;
+  unsigned char* imagePixels = stbi_load(path.string().c_str(), &imageWidth, &imageHeight, &imageChannels, STBI_rgb_alpha);
+  if (!imagePixels)
+  {
+    throw std::runtime_error("Failed to load texture from " + path.string());
+  }
+
+  Texture texture;
+  texture.size(imageWidth, imageHeight)
+         .format(vk::Format::eR8G8B8A8Srgb)
+         .useSampled()
+         .useTransferDst()
+         .name(path.filename().string())
+         .data(imagePixels)
+         .init(&cmdBuffer);
+
+  stbi_image_free(imagePixels);
+  return texture;
 }
 
 void Texture::init(vk::CommandBuffer* cmdBuf)

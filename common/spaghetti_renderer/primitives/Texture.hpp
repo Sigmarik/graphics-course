@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <filesystem>
 
 #include <etna/Image.hpp>
 #include <etna/RenderTargetStates.hpp>
@@ -48,6 +49,8 @@ public:
   Texture& format(vk::Format value) { assert(!m_inited); m_format = value; return *this; }
 
   Texture& data(const unsigned char* data);
+
+  static Texture loadFromPng(std::filesystem::path path, vk::CommandBuffer& cmdBuffer);
 
   void init(vk::CommandBuffer* cmdBuf);
 

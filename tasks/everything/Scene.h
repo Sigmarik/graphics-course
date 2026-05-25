@@ -28,6 +28,9 @@ private:
 
   SSAO ssao{};
 
+  spg::Texture skySphere{};
+  spg::Texture skySphereBlurry{};
+
   ShadowMap shadowMap{};
   spg::FragmentOnlyShader lightMixer{};
   spg::Texture aliasedScene{};

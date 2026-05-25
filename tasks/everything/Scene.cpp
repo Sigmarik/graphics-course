@@ -45,6 +45,9 @@ void Scene::initialize()
     .shaderPath(EVERYTHING_SHADERS_ROOT "/fxaa.frag.spv")
     .addColorAttachment(vk::Format::eB8G8R8A8Unorm)
     .init();
+
+  skySphere = spg::Texture::loadFromPng(TEXTURES_ROOT "/qwantani_noon_puresky_2k.png", getCmdBuf());
+  skySphereBlurry = spg::Texture::loadFromPng(TEXTURES_ROOT "/qwantani_noon_puresky_2k_blurry.png", getCmdBuf());
 }
 
 void Scene::render()
@@ -77,11 +80,24 @@ void Scene::render()
 
   fog.render(*this, shadowMap, deferred.depth);
 
+  struct LightMixerParams
+  {
+    glm::mat4 invProjView;
+    glm::vec4 cameraPos;
+  };
+  LightMixerParams lightMixerParams;
+  lightMixerParams.invProjView = glm::inverse(getWorldViewProj());
+  lightMixerParams.cameraPos = glm::vec4(getCam().position, 1.0f);
+
   lightMixer.dispatch(getCmdBuf())
     .bind(0, deferred.albedo, getDefaultSampler())
     .bind(1, ssao.getAo(), getDefaultSampler())
     .bind(2, directLight, getDefaultSampler())
     .bind(3, fog.getTexture(), getDefaultSampler())
+    .bind(4, skySphere, getDefaultSampler())
+    .bind(5, deferred.depth, getDefaultSampler())
+    .bind(6, skySphereBlurry, getDefaultSampler())
+    .push(lightMixerParams)
     .attach(aliasedScene);
 
   fxaaShader.dispatch(getCmdBuf())

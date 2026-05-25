@@ -9,7 +9,7 @@
 class ShadowMap
 {
 public:
-  void init(spg::App& app, const glm::vec3& light_direction = glm::vec3(1.0, -1.0, 1.0));
+  void init(spg::App& app, const glm::vec3& light_direction = glm::vec3(1.0, -2, 1.0));
   void updateCameraPositions(const glm::vec3& main_camera_pos);
 
   Camera& getCamera(unsigned level) { return m_cameras[level]; }
