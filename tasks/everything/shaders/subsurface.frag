@@ -14,7 +14,7 @@ layout(push_constant) uniform PushConstants
     mat4 invProj;
 } pc;
 
-const uint SAMPLE_COUNT = 64;
+const uint SAMPLE_COUNT = 16;
 
 layout(location = 0) in VS_OUT
 {
