@@ -3,6 +3,7 @@
 #include "BindlessScene.h"
 #include "Fog.h"
 #include "SSAO.h"
+#include "SSSS.h"
 #include "ShadowMap.h"
 
 #include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
@@ -37,4 +38,5 @@ private:
   spg::Texture directLight{};
 
   spg::FragmentOnlyShader fxaaShader{};
+  SSSS subsurface{};
 };

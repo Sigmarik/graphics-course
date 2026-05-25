@@ -48,6 +48,8 @@ void Scene::initialize()
 
   skySphere = spg::Texture::loadFromPng(TEXTURES_ROOT "/qwantani_noon_puresky_2k.png", getCmdBuf());
   skySphereBlurry = spg::Texture::loadFromPng(TEXTURES_ROOT "/qwantani_noon_puresky_2k_blurry.png", getCmdBuf());
+
+  subsurface.init(*this);
 }
 
 void Scene::render()
@@ -89,6 +91,8 @@ void Scene::render()
   lightMixerParams.invProjView = glm::inverse(getWorldViewProj());
   lightMixerParams.cameraPos = glm::vec4(getCam().position, 1.0f);
 
+  subsurface.render(*this, directLight, deferred.depth, deferred.normalEmissive);
+
   lightMixer.dispatch(getCmdBuf())
     .bind(0, deferred.albedo, getDefaultSampler())
     .bind(1, ssao.getAo(), getDefaultSampler())
@@ -97,6 +101,7 @@ void Scene::render()
     .bind(4, skySphere, getDefaultSampler())
     .bind(5, deferred.depth, getDefaultSampler())
     .bind(6, skySphereBlurry, getDefaultSampler())
+    .bind(7, subsurface.getSubsurface(), getDefaultSampler())
     .push(lightMixerParams)
     .attach(aliasedScene);
 

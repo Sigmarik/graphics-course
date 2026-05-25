@@ -6,6 +6,7 @@ add_executable(everything
         ShadowMap.cpp
         SSAO.cpp
         Fog.cpp
+        SSSS.cpp
 )
 
 target_include_directories(everything PUBLIC ..)
@@ -24,6 +25,7 @@ target_add_shaders(everything
         shaders/indirect_depth.frag
         shaders/indirect.vert
         shaders/indirect_shadow_map.vert
+        shaders/subsurface.frag
 )
 
 add_compile_definitions(everything PRIVATE

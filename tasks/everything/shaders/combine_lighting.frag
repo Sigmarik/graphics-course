@@ -9,6 +9,7 @@ layout(binding = 3) uniform sampler2D iFog;
 layout(binding = 4) uniform sampler2D iSky;
 layout(binding = 5) uniform sampler2D iDepth;
 layout(binding = 6) uniform sampler2D iSkyBlurry;
+layout(binding = 7) uniform sampler2D iSubsurface;
 
 layout(push_constant) uniform params_t
 {
@@ -64,6 +65,7 @@ void main()
     float direct = texture(iDirectLight, uv).r * brightnessBoost;
     vec4 fog = texture(iFog, uv);
     float depth = texture(iDepth, uv).r;
+    float subsurface = texture(iSubsurface, uv).r;
 
     vec4 pos = params.invProjView * vec4(surf.wPos, depth, 1.0);
     vec3 dir = normalize(pos.xyz / pos.w - params.cameraPos.xyz);
@@ -71,8 +73,10 @@ void main()
 
     vec3 ambientView = transformSkyColor(texture(iSkyBlurry, skyUvFromVector(viewDir())).rgb);
 
-    vec3 rawColor = albedo * (ao * ao * ambient + vec3(direct));
-//    rawColor *= fog.a;
+    vec3 sssProfile = vec3(1.0, 0.5, 0.5);
+    vec3 scatteredLight = mix(vec3(direct), vec3(subsurface), sssProfile);
+
+    vec3 rawColor = albedo * (ao * ao * ambient + scatteredLight);
 
     if (depth == 1.0)
     {
