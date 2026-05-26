@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <unordered_map>
+#include <optional>
 
 #include "etna/GraphicsPipeline.hpp"
 
@@ -54,6 +56,8 @@ public:
     Dispatch& instanceCount(uint32_t count);
     Dispatch& indirect(Buffer& commands, uint32_t drawCount);
 
+    Dispatch& primitiveTopology(vk::PrimitiveTopology topology);
+
     template <class T>
     Dispatch& pushFragment(const T& constant)
     {
@@ -71,6 +75,7 @@ public:
   private:
     vk::CommandBuffer* cmdBuf = nullptr;
     etna::GraphicsPipeline* pipeline = nullptr;
+    VertexFragmentShader* owner = nullptr;
     etna::PersistentDescriptorSet* descriptorSet = nullptr;
 
     unsigned resolutionX = 0, resolutionY = 0;
@@ -95,6 +100,7 @@ public:
 
     std::optional<GeometryMapping> geometryMapping;
     std::optional<uint32_t> implicitVertexCnt;
+    std::optional<vk::PrimitiveTopology> primitiveTopologyOverride;
 
     std::string programName;
   };
@@ -106,6 +112,7 @@ public:
     assert(m_inited);
     Dispatch dispatch(command_buffer, m_etnaPipeline);
     dispatch.programName = m_programName;
+    dispatch.owner = this;
     if (m_descriptorSet.isValid()) dispatch.descriptorSet = &m_descriptorSet;
     return dispatch;
   }
@@ -228,6 +235,8 @@ public:
   VertexFragmentShader& vertexFormat(const etna::VertexByteStreamFormatDescription& format);
 
 private:
+  etna::GraphicsPipeline& getPipelineForTopology(vk::PrimitiveTopology topology);
+
   bool m_inited = false;
 
   std::filesystem::path m_fragmentShaderPath = "";
@@ -237,6 +246,7 @@ private:
   etna::GraphicsPipeline::CreateInfo m_creationInfo;
 
   etna::GraphicsPipeline m_etnaPipeline;
+  std::unordered_map<int, etna::GraphicsPipeline> m_pipelineByTopology;
 
   etna::PersistentDescriptorSet m_descriptorSet;
   std::vector<etna::Binding> m_bindlessBindings;

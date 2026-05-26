@@ -25,15 +25,20 @@ public:
   friend class Renderer;
   friend class WorldRenderer;
 
+  float getAspect() const
+  {
+    return static_cast<float>(mainWindow->getResolution().x) / static_cast<float>(mainWindow->getResolution().y);
+  }
+
   glm::mat4 getWorldView() const { return getCam().viewTm(); }
   glm::mat4 getWorldInvProj() const
   {
-    const float aspect = float(mainWindow->getResolution().x) / float(mainWindow->getResolution().y);
+    const float aspect = getAspect();
     return glm::inverse(getCam().projTm(aspect));
   }
   glm::mat4 getWorldViewProj() const
   {
-    const float aspect = float(mainWindow->getResolution().x) / float(mainWindow->getResolution().y);
+    const float aspect = getAspect();
     return getCam().projTm(aspect) * getCam().viewTm();
   }
 
@@ -50,6 +55,8 @@ public:
   glm::uvec2 getResolution() const { return mainWindow->getResolution(); }
 
   etna::Sampler& getDefaultSampler() const { return renderer->getSampler(); }
+
+  float getDeltaTime() const { return lastDeltaTime; }
 
   void overrideCamera(Camera& camera) { camOverride = &camera; }
   void clearCameraOverride() { camOverride = nullptr; }
@@ -79,6 +86,7 @@ private:
   float camMoveSpeed = 1;
   float camRotateSpeed = 0.1f;
   float zoomSensitivity = 2.0f;
+  float lastDeltaTime = 0.0f;
 
   std::unique_ptr<Renderer> renderer;
 

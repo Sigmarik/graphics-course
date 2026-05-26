@@ -29,7 +29,13 @@ VertexFragmentShader::Dispatch::~Dispatch()
       attachments,
       depthAttachment);
 
-  cmdBuf->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->getVkPipeline());
+  etna::GraphicsPipeline* pipelineToUse = pipeline;
+  if (primitiveTopologyOverride && owner)
+  {
+    pipelineToUse = &owner->getPipelineForTopology(*primitiveTopologyOverride);
+  }
+
+  cmdBuf->bindPipeline(vk::PipelineBindPoint::eGraphics, pipelineToUse->getVkPipeline());
 
   if (!implicitVertexCnt)
   {
@@ -51,7 +57,7 @@ VertexFragmentShader::Dispatch::~Dispatch()
 
     cmdBuf->bindDescriptorSets(
       vk::PipelineBindPoint::eGraphics,
-      pipeline->getVkPipelineLayout(),
+      pipelineToUse->getVkPipelineLayout(),
       0,
       1,
       &vkSet,
@@ -63,7 +69,7 @@ VertexFragmentShader::Dispatch::~Dispatch()
   {
     cmdBuf->bindDescriptorSets(
       vk::PipelineBindPoint::eGraphics,
-      pipeline->getVkPipelineLayout(),
+      pipelineToUse->getVkPipelineLayout(),
       1,
       {descriptorSet->getVkSet()},
       {});
@@ -71,11 +77,11 @@ VertexFragmentShader::Dispatch::~Dispatch()
 
   if (fragmentPushConstant)
   {
-    fragmentPushConstant->apply(*cmdBuf, vk::ShaderStageFlagBits::eFragment, pipeline->getVkPipelineLayout());
+    fragmentPushConstant->apply(*cmdBuf, vk::ShaderStageFlagBits::eFragment, pipelineToUse->getVkPipelineLayout());
   }
   if (vertexPushConstant)
   {
-    vertexPushConstant->apply(*cmdBuf, vk::ShaderStageFlagBits::eVertex, pipeline->getVkPipelineLayout());
+    vertexPushConstant->apply(*cmdBuf, vk::ShaderStageFlagBits::eVertex, pipelineToUse->getVkPipelineLayout());
   }
 
   if (indirectBuf)
@@ -183,6 +189,12 @@ VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::indirect(Buffer&
   return *this;
 }
 
+VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::primitiveTopology(vk::PrimitiveTopology topology)
+{
+  primitiveTopologyOverride = topology;
+  return *this;
+}
+
 void VertexFragmentShader::init()
 {
   assert(!m_inited);
@@ -223,6 +235,29 @@ VertexFragmentShader& VertexFragmentShader::vertexFormat(const etna::VertexByteS
     }},
   };
   return *this;
+}
+
+etna::GraphicsPipeline& VertexFragmentShader::getPipelineForTopology(vk::PrimitiveTopology topology)
+{
+  if (m_creationInfo.inputAssemblyConfig.topology == topology)
+  {
+    return m_etnaPipeline;
+  }
+
+  int key = static_cast<int>(topology);
+  auto it = m_pipelineByTopology.find(key);
+  if (it != m_pipelineByTopology.end())
+  {
+    return it->second;
+  }
+
+  auto& pipelineManager = etna::get_context().getPipelineManager();
+  auto createInfo = m_creationInfo;
+  createInfo.inputAssemblyConfig.topology = topology;
+  auto [insertIt, inserted] = m_pipelineByTopology.emplace(
+    key,
+    pipelineManager.createGraphicsPipeline(m_programName.c_str(), createInfo));
+  return insertIt->second;
 }
 
 }

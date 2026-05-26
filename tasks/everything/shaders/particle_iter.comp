@@ -1,10 +1,5 @@
 #version 460
 
-#extension GL_EXT_shader_8bit_storage : require
-#extension GL_EXT_shader_16bit_storage : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
-
 layout(local_size_x = 1024) in;
 
 struct Particle {
@@ -12,7 +7,7 @@ struct Particle {
     float vx, vy, vz;
     float ttl;
     float size;
-    uint8_t r, g, b, a;
+    uint colorRGBA;
 };
 
 layout(std430, binding = 0) buffer ParticlesBuffer {
@@ -20,7 +15,7 @@ layout(std430, binding = 0) buffer ParticlesBuffer {
 };
 
 layout(std430, binding = 1) buffer FreeParticlesBuffer {
-    uint16_t freeParticles[];
+    uint freeParticles[];
 };
 
 layout(std430, binding = 2) buffer FreeCountBuffer {
@@ -43,8 +38,8 @@ void main() {
         particles[idx].pz += particles[idx].vz * push.deltaTime;
 
         if (particles[idx].ttl <= 0.0) {
-            uint freeIdx = atomicAdd(freeCount, 1);
-            freeParticles[freeIdx] = uint16_t(idx);
+            uint freeIdx = atomicAdd(freeCount, 1u);
+            freeParticles[freeIdx] = idx;
             particles[idx].ttl = -1.0;
         }
     }

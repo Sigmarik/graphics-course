@@ -5,6 +5,7 @@
 #include "SSAO.h"
 #include "SSSS.h"
 #include "ShadowMap.h"
+#include "Particles.h"
 
 #include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
 #include <spaghetti_renderer/primitives/VertexFragmentShader.hpp>
@@ -39,6 +40,7 @@ private:
 
   spg::FragmentOnlyShader fxaaShader{};
   SSSS subsurface{};
+  Particles particles{};
 
   bool enableFXAA = true;
   bool enableSSAO = true;

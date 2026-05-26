@@ -44,6 +44,7 @@ void App::run()
     const double currTime = windowing.getTime();
     const float diffTime = static_cast<float>(currTime - lastTime);
     lastTime = currTime;
+    lastDeltaTime = diffTime;
 
     windowing.poll();
 

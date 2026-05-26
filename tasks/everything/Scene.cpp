@@ -1,6 +1,7 @@
 #include "Scene.h"
 
 #include "imgui.h"
+#include <vector>
 
 void Scene::initialize()
 {
@@ -50,6 +51,47 @@ void Scene::initialize()
   skySphereBlurry = spg::Texture::loadFromPng(TEXTURES_ROOT "/qwantani_noon_puresky_2k_blurry.png", getCmdBuf());
 
   subsurface.init(*this);
+
+  std::vector<Emitter> emitters;
+  emitters.reserve(2);
+
+  Emitter orangeEmitter;
+  orangeEmitter.particleTemplate.px = 0.0f;
+  orangeEmitter.particleTemplate.py = 0.2f;
+  orangeEmitter.particleTemplate.pz = 0.0f;
+  orangeEmitter.particleTemplate.vx = 0.0f;
+  orangeEmitter.particleTemplate.vy = 2.5f;
+  orangeEmitter.particleTemplate.vz = 0.0f;
+  orangeEmitter.particleTemplate.ttl = 2.0f;
+  orangeEmitter.particleTemplate.size = 0.08f;
+  orangeEmitter.particleTemplate.colorRGBA = packColorRGBA(glm::u8vec3(255, 120, 30), 180);
+  orangeEmitter.positionVariation = 0.25f;
+  orangeEmitter.velocityVariation = 0.6f;
+  orangeEmitter.sizeVariation = 0.05f;
+  orangeEmitter.transparencyVariation = 40.0f;
+  orangeEmitter.ttlVariation = 0.5f;
+  orangeEmitter.spawnDt = 0.02f;
+  emitters.push_back(orangeEmitter);
+
+  Emitter blueEmitter;
+  blueEmitter.particleTemplate.px = 2.0f;
+  blueEmitter.particleTemplate.py = 0.3f;
+  blueEmitter.particleTemplate.pz = -1.5f;
+  blueEmitter.particleTemplate.vx = 0.0f;
+  blueEmitter.particleTemplate.vy = 0.8f;
+  blueEmitter.particleTemplate.vz = 0.4f;
+  blueEmitter.particleTemplate.ttl = 3.5f;
+  blueEmitter.particleTemplate.size = 0.15f;
+  blueEmitter.particleTemplate.colorRGBA = packColorRGBA(glm::u8vec3(80, 140, 255), 110);
+  blueEmitter.positionVariation = 0.6f;
+  blueEmitter.velocityVariation = 0.35f;
+  blueEmitter.sizeVariation = 0.08f;
+  blueEmitter.transparencyVariation = 30.0f;
+  blueEmitter.ttlVariation = 1.0f;
+  blueEmitter.spawnDt = 0.05f;
+  emitters.push_back(blueEmitter);
+
+  particles.init(*this, emitters, aliasedScene.getFormat(), deferred.depth.getFormat());
 }
 
 void Scene::render()
@@ -114,6 +156,9 @@ void Scene::render()
     .bind(7, subsurface.getSubsurface(), getDefaultSampler())
     .push(lightMixerParams)
     .attach(aliasedScene);
+
+  particles.tick(*this, getDeltaTime());
+  particles.draw(*this, aliasedScene, deferred.depth);
 
   struct FxaaParams
   {

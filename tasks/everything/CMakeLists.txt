@@ -27,11 +27,11 @@ target_add_shaders(everything
         shaders/indirect.vert
         shaders/indirect_shadow_map.vert
         shaders/subsurface.frag
-        shaders/particles/particles.vert
-        shaders/particles/particles.frag
-        shaders/particles/particle_iter.comp
-        shaders/particles/emitter_iter.comp
-        shaders/particles/particle_depth_sorter.comp
+        shaders/particles.vert
+        shaders/particles.frag
+        shaders/particle_iter.comp
+        shaders/emitter_iter.comp
+        shaders/particle_depth_sorter.comp
 )
 
 add_compile_definitions(everything PRIVATE

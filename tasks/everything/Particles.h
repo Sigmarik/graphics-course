@@ -6,15 +6,28 @@
 #include "spaghetti_renderer/primitives/Texture.hpp"
 #include "spaghetti_renderer/primitives/VertexFragmentShader.hpp"
 
+#include <cstdint>
+
 struct Particle
 {
-  glm::vec3 position{};
-  glm::vec3 velocity{};
+  float px = 0.0f;
+  float py = 0.0f;
+  float pz = 0.0f;
+  float vx = 0.0f;
+  float vy = 0.0f;
+  float vz = 0.0f;
   float ttl = 0.0f;
   float size = 0.1f;
-  glm::u8vec3 color{255, 0, 0};
-  uint8_t transparency = 128;
+  uint32_t colorRGBA = 0xFF0000FFu;
 };
+
+inline uint32_t packColorRGBA(const glm::u8vec3& color, uint8_t alpha)
+{
+  return static_cast<uint32_t>(color.r)
+    | (static_cast<uint32_t>(color.g) << 8u)
+    | (static_cast<uint32_t>(color.b) << 16u)
+    | (static_cast<uint32_t>(alpha) << 24u);
+}
 
 class Emitter
 {

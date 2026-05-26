@@ -1,10 +1,5 @@
 #version 460
 
-#extension GL_EXT_shader_8bit_storage : require
-#extension GL_EXT_shader_16bit_storage : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
-
 layout(local_size_x = 1024) in;
 
 struct Particle {
@@ -12,7 +7,7 @@ struct Particle {
     float vx, vy, vz;
     float ttl;
     float size;
-    uint8_t r, g, b, a;
+    uint colorRGBA;
 };
 
 struct Emitter {
@@ -27,7 +22,7 @@ struct Emitter {
 };
 
 layout(std430, binding = 0) buffer EmittersBuffer { Emitter emitters[]; };
-layout(std430, binding = 1) buffer FreeParticlesBuffer { uint16_t freeParticles[]; };
+layout(std430, binding = 1) buffer FreeParticlesBuffer { uint freeParticles[]; };
 layout(std430, binding = 2) buffer FreeCountBuffer { uint freeCount; };
 layout(std430, binding = 3) buffer ParticlesBuffer { Particle particles[]; };
 
@@ -36,37 +31,62 @@ layout(push_constant) uniform PushConstants {
 } push;
 
 float rand(vec2 co) {
-    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+    return fract(sin(dot(co, vec2(12.9898, 78.233)) * 0.1) * 43758.5453);
+}
+
+vec4 unpackColor(uint packed) {
+    float r = float(packed & 0xFFu) / 255.0;
+    float g = float((packed >> 8) & 0xFFu) / 255.0;
+    float b = float((packed >> 16) & 0xFFu) / 255.0;
+    float a = float((packed >> 24) & 0xFFu) / 255.0;
+    return vec4(r, g, b, a);
+}
+
+uint packColor(vec4 color) {
+    uvec4 c = uvec4(clamp(color, 0.0, 1.0) * 255.0 + 0.5);
+    return c.r | (c.g << 8) | (c.b << 16) | (c.a << 24);
 }
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
     if (idx >= emitters.length()) return;
-    // Use loop to spawn particles if deltaTime > spawnDt
+
     emitters[idx].timeBeforeNextSpawn -= push.deltaTime;
-    uint i = 0;
+
+    uint i = 0u;
     while (emitters[idx].timeBeforeNextSpawn <= 0.0) {
         emitters[idx].timeBeforeNextSpawn += emitters[idx].spawnDt;
         i++;
-        uint prevCount = atomicAdd(freeCount, -1);
-        if (prevCount > 0) {
-            uint16_t pIdx = freeParticles[prevCount - 1];
+
+        uint prevCount = atomicAdd(freeCount, uint(-1));
+        if (prevCount > 0u) {
+            uint pIdx = freeParticles[prevCount - 1u];
+
             float seedX = rand(vec2(idx + i, push.deltaTime));
             float seedY = rand(vec2(push.deltaTime, idx + i));
             float seedZ = rand(vec2(seedX, seedY));
+
             Particle p = emitters[idx].particleTemplate;
             p.px += (seedX * 2.0 - 1.0) * emitters[idx].positionVariation;
             p.py += (seedY * 2.0 - 1.0) * emitters[idx].positionVariation;
             p.pz += (seedZ * 2.0 - 1.0) * emitters[idx].positionVariation;
+
             p.vx += (seedX * 2.0 - 1.0) * emitters[idx].velocityVariation;
             p.vy += (seedY * 2.0 - 1.0) * emitters[idx].velocityVariation;
             p.vz += (seedZ * 2.0 - 1.0) * emitters[idx].velocityVariation;
+
             p.size += (seedX * 2.0 - 1.0) * emitters[idx].sizeVariation;
             p.ttl += (seedY * 2.0 - 1.0) * emitters[idx].ttlVariation;
+
+            vec4 baseColor = unpackColor(p.colorRGBA);
+            float alpha = baseColor.a + (seedZ * 2.0 - 1.0) * (emitters[idx].transparencyVariation / 255.0);
+            baseColor.a = clamp(alpha, 0.0, 1.0);
+            p.colorRGBA = packColor(baseColor);
+
             particles[pIdx] = p;
         } else {
-            atomicAdd(freeCount, 1);
-            break; // No more free particles
+            atomicAdd(freeCount, 1u);
+            break;
         }
     }
 }
