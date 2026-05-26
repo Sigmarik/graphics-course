@@ -6,6 +6,7 @@
 void Scene::initialize()
 {
   deferred.resolution(getResolution()).init(&getCmdBuf());
+  reflectionDeferred.resolution(getResolution()).init(&getCmdBuf());
   bindless.init(*this);
 
   ssao.init(*this);
@@ -17,7 +18,21 @@ void Scene::initialize()
     .useSampled()
     .init(&getCmdBuf());
 
+  reflectionWithLighting.name("litReflection")
+    .size(getResolution())
+    .format(vk::Format::eB8G8R8A8Unorm)
+    .useColorAttachment()
+    .useSampled()
+    .init(&getCmdBuf());
+
   directLight.name("directLighting")
+    .size(getResolution().x, getResolution().y)
+    .format(vk::Format::eR16Sfloat)
+    .useColorAttachment()
+    .useSampled()
+    .init(&getCmdBuf());
+
+  reflectionDirectLight.name("reflectionDirectLighting")
     .size(getResolution().x, getResolution().y)
     .format(vk::Format::eR16Sfloat)
     .useColorAttachment()
@@ -92,20 +107,13 @@ void Scene::initialize()
   emitters.push_back(blueEmitter);
 
   particles.init(*this, emitters, aliasedScene.getFormat(), deferred.depth.getFormat());
+
+  fullWhite = spg::Texture::loadFromPng(TEXTURES_ROOT "/white_pixel.png", getCmdBuf());
+  fullBlack = spg::Texture::loadFromPng(TEXTURES_ROOT "/black_pixel.png", getCmdBuf());
 }
 
 void Scene::render()
 {
-  bindless.render(*this, deferred);
-
-  shadowMap.updateCameraPositions(getCam().position);
-  bindless.renderShadowMap(*this, shadowMap);
-
-  if (enableSSAO)
-  {
-    ssao.render(*this, deferred.depth, deferred.normalEmissive);
-  }
-
   struct CombinedMatrices
   {
     glm::mat4 invProjView;
@@ -113,19 +121,56 @@ void Scene::render()
     glm::mat4 invView;
     glm::mat4 lightInvView;
   };
-  CombinedMatrices combinedMatrices;
+
+  bindless.render(*this, deferred);
+
+  shadowMap.updateCameraPositions(getCam().position);
+  bindless.renderShadowMap(*this, shadowMap);
+
+  Camera reflectionCam = getCam();
+  const glm::vec3 camForward = getCam().forward();
+  const glm::vec3 camUp = getCam().up();
+  reflectionCam.position.y = 2.0f * waterLevel - reflectionCam.position.y;
+  const glm::vec3 reflectedForward = glm::vec3(camForward.x, -camForward.y, camForward.z);
+  const glm::vec3 reflectedUp = glm::vec3(camUp.x, -camUp.y, camUp.z);
+  reflectionCam.lookAt(reflectionCam.position, reflectionCam.position + reflectedForward, reflectedUp);
+
+  overrideCamera(reflectionCam);
+  bindless.renderWithCutoff(*this, reflectionDeferred, waterLevel);
+  clearCameraOverride();
+
+  CombinedMatrices reflectedMatrices;
+  reflectedMatrices.invProjView = glm::inverse(reflectionCam.projTm(getAspect()) * reflectionCam.viewTm());
   Camera& shadowCam = shadowMap.getCamera(0);
-  combinedMatrices.invProjView = glm::inverse(getWorldViewProj());
-  combinedMatrices.lightProjView = shadowCam.projTm(1.0f) * shadowCam.viewTm();
-  combinedMatrices.invView = glm::inverse(getWorldView());
-  combinedMatrices.lightInvView = glm::inverse(shadowCam.viewTm());
+  reflectedMatrices.lightProjView = shadowCam.projTm(1.0f) * shadowCam.viewTm();
+  reflectedMatrices.invView = glm::inverse(reflectionCam.viewTm());
+  reflectedMatrices.lightInvView = glm::inverse(shadowCam.viewTm());
+
+  directLightingShader.dispatch(getCmdBuf())
+    .bind(0, reflectionDeferred.depth, getDefaultSampler())
+    .bind(1, reflectionDeferred.normalEmissive, getDefaultSampler())
+    .push(reflectedMatrices)
+    .attach(reflectionDirectLight);
+
+  CombinedMatrices mainMatrices;
+  Camera& shadowCamMain = shadowMap.getCamera(0);
+  mainMatrices.invProjView = glm::inverse(getWorldViewProj());
+  mainMatrices.lightProjView = shadowCamMain.projTm(1.0f) * shadowCamMain.viewTm();
+  mainMatrices.invView = glm::inverse(getWorldView());
+  mainMatrices.lightInvView = glm::inverse(shadowCamMain.viewTm());
+
   directLightingShader.dispatch(getCmdBuf())
     .bind(0, deferred.depth, getDefaultSampler())
     .bind(1, deferred.normalEmissive, getDefaultSampler())
-    .push(combinedMatrices)
+    .push(mainMatrices)
     .attach(directLight);
 
   fog.render(*this, shadowMap, deferred.depth);
+
+  if (enableSSAO)
+  {
+    ssao.render(*this, deferred.depth, deferred.normalEmissive);
+  }
 
   struct LightMixerParams
   {
@@ -135,10 +180,27 @@ void Scene::render()
     uint32_t enableSSSS;
   };
   LightMixerParams lightMixerParams;
+  lightMixerParams.invProjView = glm::inverse(reflectionCam.projTm(getAspect()) * reflectionCam.viewTm());
+  lightMixerParams.cameraPos = glm::vec4(reflectionCam.position, 1.0f);
+  lightMixerParams.enableSSAO = false;
+  lightMixerParams.enableSSSS = false;
+
+  lightMixer.dispatch(getCmdBuf())
+    .bind(0, reflectionDeferred.albedo, getDefaultSampler())
+    .bind(1, fullWhite, getDefaultSampler())
+    .bind(2, reflectionDirectLight, getDefaultSampler())
+    .bind(3, fullBlack, getDefaultSampler())
+    .bind(4, skySphere, getDefaultSampler())
+    .bind(5, reflectionDeferred.depth, getDefaultSampler())
+    .bind(6, skySphereBlurry, getDefaultSampler())
+    .bind(7, fullBlack, getDefaultSampler())
+    .push(lightMixerParams)
+    .attach(reflectionWithLighting);
+
   lightMixerParams.invProjView = glm::inverse(getWorldViewProj());
   lightMixerParams.cameraPos = glm::vec4(getCam().position, 1.0f);
-  lightMixerParams.enableSSAO = enableSSAO;
-  lightMixerParams.enableSSSS = enableSSSS;
+  lightMixerParams.enableSSAO = static_cast<uint32_t>(enableSSAO);
+  lightMixerParams.enableSSSS = static_cast<uint32_t>(enableSSSS);
 
   if (enableSSSS)
   {

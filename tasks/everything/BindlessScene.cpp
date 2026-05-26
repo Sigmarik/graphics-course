@@ -73,6 +73,14 @@ void BindlessScene::init(spg::App& app)
     .addColorAttachment(DeferredTextureBunch::ALBEDO_FORMAT)
     .addColorAttachment(DeferredTextureBunch::NORMAL_EMISSIVE_FORMAT);
 
+  shaderWithCutoff.programName("indirectShaderWithCutoff")
+    .vertexPath(EVERYTHING_SHADERS_ROOT "indirect_with_cutoff.vert.spv")
+    .fragmentPath(EVERYTHING_SHADERS_ROOT "indirect_with_cutoff.frag.spv")
+    .vertexFormat(sceneManager.getCompressedVertexFormatDescription())
+    .depthOutputFormat(DeferredTextureBunch::DEPTH_FORMAT)
+    .addColorAttachment(DeferredTextureBunch::ALBEDO_FORMAT)
+    .addColorAttachment(DeferredTextureBunch::NORMAL_EMISSIVE_FORMAT);
+
   depthOnlyShader.programName("indirectDepthOnlyShader")
     .vertexPath(EVERYTHING_SHADERS_ROOT "indirect_shadow_map.vert.spv")
     .fragmentPath(EVERYTHING_SHADERS_ROOT "indirect_depth.frag.spv")
@@ -92,9 +100,11 @@ void BindlessScene::init(spg::App& app)
       .useSampled()
       .init(&app.getCmdBuf());
     shader.addPersistentBinding(tex, app.getDefaultSampler());
+    shaderWithCutoff.addPersistentBinding(tex, app.getDefaultSampler());
   }
 
   shader.init();
+  shaderWithCutoff.init();
 }
 
 struct Matrices
@@ -135,4 +145,23 @@ void BindlessScene::renderShadowMap(spg::App& app, ShadowMap& target)
       .attachAsDepth(target.getTexture(idx))
       .pushVertex(matrices);
   }
+}
+
+void BindlessScene::renderWithCutoff(spg::App& app, DeferredTextureBunch& target, float waterLevel)
+{
+  struct CutoffMatrices
+  {
+    glm::mat4 projView;
+    glm::mat4 view;
+    glm::vec4 waterParams;
+  } matrices{app.getWorldViewProj(), app.getWorldView(), glm::vec4(waterLevel, 0.0f, 0.0f, 0.0f)};
+
+  shaderWithCutoff.dispatch(app.getCmdBuf())
+    .geometry(sceneManager.getVertexBuffer(), sceneManager.getIndexBuffer())
+    .indirect(indirect, indirectCount)
+    .bind(0, instanceInfo)
+    .attachAsDepth(target.depth)
+    .attach(target.albedo)
+    .attach(target.normalEmissive)
+    .pushVertex(matrices);
 }

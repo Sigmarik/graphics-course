@@ -23,8 +23,10 @@ target_add_shaders(everything
         shaders/direct_light.frag
         shaders/spatial_denoise.frag
         shaders/indirect.frag
+        shaders/indirect_with_cutoff.frag
         shaders/indirect_depth.frag
         shaders/indirect.vert
+        shaders/indirect_with_cutoff.vert
         shaders/indirect_shadow_map.vert
         shaders/subsurface.frag
         shaders/particles.vert

@@ -78,19 +78,37 @@ void Texture::prepareForShaderRead(vk::CommandBuffer& cmd_buf, vk::PipelineStage
   assert(m_inited);
 
   const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+  const bool isDepthStencil = (aspectMask & (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) != vk::ImageAspectFlags{};
+  const vk::ImageLayout layout = isDepthStencil ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
+                                                : vk::ImageLayout::eShaderReadOnlyOptimal;
 
   etna::set_state(
       cmd_buf,
       raw().get(),
       stage,
       vk::AccessFlagBits2::eShaderSampledRead,
-      vk::ImageLayout::eShaderReadOnlyOptimal,
+      layout,
       aspectMask);
 }
 
 void Texture::prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage)
 {
   assert(m_inited);
+
+  const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+  const bool isDepthStencil = (aspectMask & (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) != vk::ImageAspectFlags{};
+
+  if (isDepthStencil)
+  {
+    etna::set_state(
+        cmd_buf,
+        raw().get(),
+        vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        aspectMask);
+    return;
+  }
 
   etna::set_state(
       cmd_buf,
@@ -103,8 +121,11 @@ void Texture::prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStag
 
 etna::Binding Texture::getBinding(unsigned bindingId, const etna::Sampler& sampler, unsigned arrayElem)
 {
-  etna::Binding binding(bindingId, raw().genBinding(
-      sampler.get(), vk::ImageLayout::eShaderReadOnlyOptimal));
+  const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+  const bool isDepthStencil = (aspectMask & (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) != vk::ImageAspectFlags{};
+  const vk::ImageLayout layout = isDepthStencil ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
+                                                : vk::ImageLayout::eShaderReadOnlyOptimal;
+  etna::Binding binding(bindingId, raw().genBinding(sampler.get(), layout));
   binding.arrayElem = arrayElem;
   return binding;
 }

@@ -15,6 +15,7 @@ public:
   void init(spg::App& app);
   void render(spg::App& app, DeferredTextureBunch& target);
   void renderShadowMap(spg::App& app, ShadowMap& target);
+  void renderWithCutoff(spg::App& app, DeferredTextureBunch& target, float waterLevel);
 
 private:
   std::vector<spg::Texture> textures;
@@ -23,6 +24,7 @@ private:
 
   spg::VertexFragmentShader shader;
   spg::VertexFragmentShader depthOnlyShader;
+  spg::VertexFragmentShader shaderWithCutoff;
 
   uint32_t indirectCount = 0;
 

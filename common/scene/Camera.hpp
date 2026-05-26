@@ -55,8 +55,6 @@ struct Camera
   {
     glm::mat4 viewMatrix = viewTm();
     glm::mat4 projMatrix = projTm(float(resolution.x) / float(resolution.y));
-    glm::mat4 inverseViewMatrix = glm::inverse(viewMatrix);
-    glm::mat4 inverseProjMatrix = glm::inverse(projMatrix);
     glm::mat4 viewProjMatrix = projMatrix * viewMatrix;
     glm::mat4 invViewProjMatrix = glm::inverse(viewProjMatrix);
 

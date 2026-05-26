@@ -23,6 +23,7 @@ protected:
 private:
   BindlessScene bindless{};
   DeferredTextureBunch deferred{};
+  DeferredTextureBunch reflectionDeferred{};
 
   spg::FragmentOnlyShader directLightingShader{};
 
@@ -37,10 +38,18 @@ private:
   spg::FragmentOnlyShader lightMixer{};
   spg::Texture aliasedScene{};
   spg::Texture directLight{};
+  spg::Texture reflectionDirectLight{};
+
+  spg::Texture reflectionWithLighting{};
+
+  spg::Texture fullWhite{};
+  spg::Texture fullBlack{};
 
   spg::FragmentOnlyShader fxaaShader{};
   SSSS subsurface{};
   Particles particles{};
+
+  float waterLevel = 1.0f;
 
   bool enableFXAA = true;
   bool enableSSAO = true;
