@@ -48,6 +48,11 @@ vec3 worldPosToClip(vec3 worldPos)
     return clipPos.xyz / clipPos.w;
 }
 
+const float WATER_DENSITY = 150.0;
+const vec3 WATER_ABSORPTION = vec3(0.0033, 0.0016, 0.0011) * WATER_DENSITY;
+const vec3 BACKSCATTER_COEFFICIENTS = vec3(0.00035, 0.00025, 0.0002) * WATER_DENSITY;
+const vec3 INFINITE_DEPTH_COLOR = BACKSCATTER_COEFFICIENTS / (BACKSCATTER_COEFFICIENTS + WATER_ABSORPTION);
+
 void main()
 {
     vec2 uv = surf.wPos * 0.5 + 0.5;
@@ -73,7 +78,24 @@ void main()
     }
     gl_FragDepth = worldPosToClip(hitPoint).z * 0.5 + 0.5;
 
-    finalColor = reflColor;
+    vec3 deepColor = baseColor;
+    float depthDiff = distance(worldPosHere, camPos) - distance(hitPoint, camPos);
+    float absorptionRed = exp(-depthDiff * WATER_ABSORPTION.r);
+    float absorptionGreen = exp(-depthDiff * WATER_ABSORPTION.g);
+    float absorptionBlue = exp(-depthDiff * WATER_ABSORPTION.b);
+    deepColor.r *= absorptionRed;
+    deepColor.g *= absorptionGreen;
+    deepColor.b *= absorptionBlue;
+    if (baseDepth == 1.0)
+    {
+        deepColor = INFINITE_DEPTH_COLOR;
+    }
+
+    float frenel = pow(1.0 - max(dot(rayDir, vec3(0, -1, 0)), 0.0), 5.0);
+    finalColor = mix(deepColor, reflColor, frenel);
+
+    finalColor = mix(finalColor, INFINITE_DEPTH_COLOR, 0.1);
+
 
     out_fragColor = vec4(finalColor, 1.0);
 }
