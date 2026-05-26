@@ -6,6 +6,7 @@
 #include "SSSS.h"
 #include "ShadowMap.h"
 #include "Particles.h"
+#include "Water.h"
 
 #include <spaghetti_renderer/primitives/FragmentOnlyShader.hpp>
 #include <spaghetti_renderer/primitives/VertexFragmentShader.hpp>
@@ -48,6 +49,7 @@ private:
   spg::FragmentOnlyShader fxaaShader{};
   SSSS subsurface{};
   Particles particles{};
+  Water water{};
 
   float waterLevel = 1.0f;
 
@@ -55,4 +57,5 @@ private:
   bool enableSSAO = true;
   bool enableSSSS = false;
   bool enableParticles = true;
+  bool enableWater = true;
 };

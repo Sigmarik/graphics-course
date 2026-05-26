@@ -89,7 +89,10 @@ FragmentOnlyShader::Dispatch& FragmentOnlyShader::Dispatch::attach(const etna::R
 
 FragmentOnlyShader::Dispatch& FragmentOnlyShader::Dispatch::attachAsDepth(Texture& texture)
 {
+  texture.prepareForShaderWrite(*cmdBuf);
   depthAttachment = {.image = texture.raw().get(), .view = texture.raw().getView({})};
+  resolutionX = texture.raw().getExtent().width;
+  resolutionY = texture.raw().getExtent().height;
   return *this;
 }
 

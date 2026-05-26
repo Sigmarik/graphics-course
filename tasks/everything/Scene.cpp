@@ -110,6 +110,8 @@ void Scene::initialize()
 
   fullWhite = spg::Texture::loadFromPng(TEXTURES_ROOT "/white_pixel.png", getCmdBuf());
   fullBlack = spg::Texture::loadFromPng(TEXTURES_ROOT "/black_pixel.png", getCmdBuf());
+
+  water.init(*this, deferred.depth.getFormat());
 }
 
 void Scene::render()
@@ -222,7 +224,18 @@ void Scene::render()
   if (enableParticles)
   {
     particles.tick(*this, getDeltaTime());
-    particles.draw(*this, aliasedScene, deferred.depth);
+  }
+
+  spg::Texture* postWaterColor = &aliasedScene;
+  if (enableWater)
+  {
+    water.render(*this, waterLevel, aliasedScene, deferred.depth, reflectionWithLighting);
+    postWaterColor = &water.getTexture();
+  }
+
+  if (enableParticles)
+  {
+    particles.draw(*this, *postWaterColor, deferred.depth);
   }
 
   struct FxaaParams
@@ -231,7 +244,7 @@ void Scene::render()
   } fxaaParams{enableFXAA};
 
   fxaaShader.dispatch(getCmdBuf())
-    .bind(0, aliasedScene, getDefaultSampler())
+    .bind(0, *postWaterColor, getDefaultSampler())
     .push(fxaaParams)
     .attach(getScreenAttachment(), getResolution());
 }
@@ -242,4 +255,5 @@ void Scene::renderGui()
   ImGui::Checkbox("Enable SSAO", &enableSSAO);
   ImGui::Checkbox("Enable SSSS", &enableSSSS);
   ImGui::Checkbox("Enable Particles", &enableParticles);
+  ImGui::Checkbox("Enable Water", &enableWater);
 }

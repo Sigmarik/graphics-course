@@ -8,6 +8,7 @@ add_executable(everything
         Fog.cpp
         SSSS.cpp
         Particles.cpp
+        Water.cpp
 )
 
 target_include_directories(everything PUBLIC ..)
@@ -34,6 +35,7 @@ target_add_shaders(everything
         shaders/particle_iter.comp
         shaders/emitter_iter.comp
         shaders/particle_depth_sorter.comp
+        shaders/ray_traced_water.frag
 )
 
 add_compile_definitions(everything PRIVATE
