@@ -41,6 +41,7 @@ void Particles::init(spg::App&, const std::vector<Emitter>& emitters,
     .alphaBlend(true)
     .addColorAttachment(colorFormat)
     .depthOutputFormat(depthFormat)
+    .depthWrite(false)
     .init();
 
   freeParticleCount.name("freeParticleCount")
@@ -87,7 +88,7 @@ void Particles::draw(spg::App& app, spg::Texture& color, spg::Texture& depth)
     .pushVertex(matrices)
     .bind(0, gpuParticles)
     .bind(1, sortedIndices)
-    .attach(color)
+    .attach(color, vk::AttachmentLoadOp::eLoad)
     .instanceCount(maxParticles)
-    .attachAsDepth(depth);
+    .attachAsDepth(depth, vk::AttachmentLoadOp::eLoad);
 }

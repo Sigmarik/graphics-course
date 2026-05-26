@@ -44,8 +44,10 @@ public:
     Dispatch& operator=(Dispatch&&) = default;
 
     Dispatch& attach(Texture& texture);
+    Dispatch& attach(Texture& texture, vk::AttachmentLoadOp loadOp);
     Dispatch& attach(const etna::RenderTargetState::AttachmentParams& params, glm::uvec2 resolution);
     Dispatch& attachAsDepth(Texture& texture);
+    Dispatch& attachAsDepth(Texture& texture, vk::AttachmentLoadOp loadOp);
     Dispatch& bind(unsigned id, Texture& texture, etna::Sampler& sampler);
     Dispatch& bind(unsigned id, Buffer& buffer);
 
@@ -147,6 +149,13 @@ public:
   {
     assert(!m_inited);
     m_creationInfo.fragmentShaderOutput.depthAttachmentFormat = format;
+    return *this;
+  }
+
+  VertexFragmentShader& depthWrite(bool enable = true)
+  {
+    assert(!m_inited);
+    m_creationInfo.depthConfig.depthWriteEnable = enable ? vk::True : vk::False;
     return *this;
   }
 

@@ -63,7 +63,7 @@ void Scene::initialize()
   orangeEmitter.particleTemplate.vy = 2.5f;
   orangeEmitter.particleTemplate.vz = 0.0f;
   orangeEmitter.particleTemplate.ttl = 2.0f;
-  orangeEmitter.particleTemplate.size = 0.08f;
+  orangeEmitter.particleTemplate.size = 0.2f;
   orangeEmitter.particleTemplate.colorRGBA = packColorRGBA(glm::u8vec3(255, 120, 30), 180);
   orangeEmitter.positionVariation = 0.25f;
   orangeEmitter.velocityVariation = 0.6f;
@@ -81,7 +81,7 @@ void Scene::initialize()
   blueEmitter.particleTemplate.vy = 0.8f;
   blueEmitter.particleTemplate.vz = 0.4f;
   blueEmitter.particleTemplate.ttl = 3.5f;
-  blueEmitter.particleTemplate.size = 0.15f;
+  blueEmitter.particleTemplate.size = 0.3f;
   blueEmitter.particleTemplate.colorRGBA = packColorRGBA(glm::u8vec3(80, 140, 255), 110);
   blueEmitter.positionVariation = 0.6f;
   blueEmitter.velocityVariation = 0.35f;
@@ -157,8 +157,11 @@ void Scene::render()
     .push(lightMixerParams)
     .attach(aliasedScene);
 
-  particles.tick(*this, getDeltaTime());
-  particles.draw(*this, aliasedScene, deferred.depth);
+  if (enableParticles)
+  {
+    particles.tick(*this, getDeltaTime());
+    particles.draw(*this, aliasedScene, deferred.depth);
+  }
 
   struct FxaaParams
   {
@@ -176,4 +179,5 @@ void Scene::renderGui()
   ImGui::Checkbox("Enable FXAA", &enableFXAA);
   ImGui::Checkbox("Enable SSAO", &enableSSAO);
   ImGui::Checkbox("Enable SSSS", &enableSSSS);
+  ImGui::Checkbox("Enable Particles", &enableParticles);
 }

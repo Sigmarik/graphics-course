@@ -108,20 +108,38 @@ VertexFragmentShader::Dispatch::~Dispatch()
   }
 }
 
+VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attach(Texture& texture, vk::AttachmentLoadOp loadOp)
+{
+  texture.prepareForShaderWrite(*cmdBuf);
+  etna::RenderTargetState::AttachmentParams params{};
+  params.image = texture.raw().get();
+  params.view = texture.raw().getView({});
+  params.loadOp = loadOp;
+  attachments.push_back(params);
+  resolutionX = texture.raw().getExtent().width;
+  resolutionY = texture.raw().getExtent().height;
+  return *this;
+}
+
+VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attachAsDepth(Texture& texture, vk::AttachmentLoadOp loadOp)
+{
+  texture.prepareForShaderWrite(*cmdBuf);
+  etna::RenderTargetState::AttachmentParams params{};
+  params.image = texture.raw().get();
+  params.view = texture.raw().getView({});
+  params.loadOp = loadOp;
+  depthAttachment = params;
+  resolutionX = texture.raw().getExtent().width;
+  resolutionY = texture.raw().getExtent().height;
+  return *this;
+}
+
 VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attach(Texture& texture)
 {
   texture.prepareForShaderWrite(*cmdBuf);
   attachments.push_back({.image = texture.raw().get(), .view = texture.raw().getView({})});
   resolutionX = texture.raw().getExtent().width;
   resolutionY = texture.raw().getExtent().height;
-  return *this;
-}
-
-VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attach(const etna::RenderTargetState::AttachmentParams& params, glm::uvec2 resolution)
-{
-  attachments.push_back(params);
-  resolutionX = resolution.x;
-  resolutionY = resolution.y;
   return *this;
 }
 

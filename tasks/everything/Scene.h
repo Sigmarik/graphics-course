@@ -45,4 +45,5 @@ private:
   bool enableFXAA = true;
   bool enableSSAO = true;
   bool enableSSSS = false;
+  bool enableParticles = true;
 };
