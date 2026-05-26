@@ -7,6 +7,7 @@ add_executable(everything
         SSAO.cpp
         Fog.cpp
         SSSS.cpp
+        Particles.cpp
 )
 
 target_include_directories(everything PUBLIC ..)
@@ -26,6 +27,11 @@ target_add_shaders(everything
         shaders/indirect.vert
         shaders/indirect_shadow_map.vert
         shaders/subsurface.frag
+        shaders/particles/particles.vert
+        shaders/particles/particles.frag
+        shaders/particles/particle_iter.comp
+        shaders/particles/emitter_iter.comp
+        shaders/particles/particle_depth_sorter.comp
 )
 
 add_compile_definitions(everything PRIVATE

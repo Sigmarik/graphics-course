@@ -1,0 +1,72 @@
+#version 460
+
+#extension GL_EXT_shader_8bit_storage : require
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+
+layout(local_size_x = 1024) in;
+
+struct Particle {
+    float px, py, pz;
+    float vx, vy, vz;
+    float ttl;
+    float size;
+    uint8_t r, g, b, a;
+};
+
+struct Emitter {
+    float positionVariation;
+    float velocityVariation;
+    float sizeVariation;
+    float transparencyVariation;
+    float spawnDt;
+    float timeBeforeNextSpawn;
+    float ttlVariation;
+    Particle particleTemplate;
+};
+
+layout(std430, binding = 0) buffer EmittersBuffer { Emitter emitters[]; };
+layout(std430, binding = 1) buffer FreeParticlesBuffer { uint16_t freeParticles[]; };
+layout(std430, binding = 2) buffer FreeCountBuffer { uint freeCount; };
+layout(std430, binding = 3) buffer ParticlesBuffer { Particle particles[]; };
+
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+} push;
+
+float rand(vec2 co) {
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= emitters.length()) return;
+    // Use loop to spawn particles if deltaTime > spawnDt
+    emitters[idx].timeBeforeNextSpawn -= push.deltaTime;
+    uint i = 0;
+    while (emitters[idx].timeBeforeNextSpawn <= 0.0) {
+        emitters[idx].timeBeforeNextSpawn += emitters[idx].spawnDt;
+        i++;
+        uint prevCount = atomicAdd(freeCount, -1);
+        if (prevCount > 0) {
+            uint16_t pIdx = freeParticles[prevCount - 1];
+            float seedX = rand(vec2(idx + i, push.deltaTime));
+            float seedY = rand(vec2(push.deltaTime, idx + i));
+            float seedZ = rand(vec2(seedX, seedY));
+            Particle p = emitters[idx].particleTemplate;
+            p.px += (seedX * 2.0 - 1.0) * emitters[idx].positionVariation;
+            p.py += (seedY * 2.0 - 1.0) * emitters[idx].positionVariation;
+            p.pz += (seedZ * 2.0 - 1.0) * emitters[idx].positionVariation;
+            p.vx += (seedX * 2.0 - 1.0) * emitters[idx].velocityVariation;
+            p.vy += (seedY * 2.0 - 1.0) * emitters[idx].velocityVariation;
+            p.vz += (seedZ * 2.0 - 1.0) * emitters[idx].velocityVariation;
+            p.size += (seedX * 2.0 - 1.0) * emitters[idx].sizeVariation;
+            p.ttl += (seedY * 2.0 - 1.0) * emitters[idx].ttlVariation;
+            particles[pIdx] = p;
+        } else {
+            atomicAdd(freeCount, 1);
+            break; // No more free particles
+        }
+    }
+}

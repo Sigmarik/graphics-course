@@ -1,0 +1,51 @@
+#version 460
+
+#extension GL_EXT_shader_8bit_storage : require
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
+
+layout(local_size_x = 1024) in;
+
+struct Particle {
+    float px, py, pz;
+    float vx, vy, vz;
+    float ttl;
+    float size;
+    uint8_t r, g, b, a;
+};
+
+layout(std430, binding = 0) buffer ParticlesBuffer {
+    Particle particles[];
+};
+
+layout(std430, binding = 1) buffer FreeParticlesBuffer {
+    uint16_t freeParticles[];
+};
+
+layout(std430, binding = 2) buffer FreeCountBuffer {
+    uint freeCount;
+};
+
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+} push;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= particles.length()) return;
+
+    if (particles[idx].ttl > 0.0) {
+        particles[idx].ttl -= push.deltaTime;
+
+        particles[idx].px += particles[idx].vx * push.deltaTime;
+        particles[idx].py += particles[idx].vy * push.deltaTime;
+        particles[idx].pz += particles[idx].vz * push.deltaTime;
+
+        if (particles[idx].ttl <= 0.0) {
+            uint freeIdx = atomicAdd(freeCount, 1);
+            freeParticles[freeIdx] = uint16_t(idx);
+            particles[idx].ttl = -1.0;
+        }
+    }
+}

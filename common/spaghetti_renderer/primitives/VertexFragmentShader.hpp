@@ -50,6 +50,7 @@ public:
     Dispatch& geometry(Buffer& vertices, Buffer& indices);
     Dispatch& geometry(vk::Buffer vertices, vk::Buffer indices);
     Dispatch& geomMapping(uint32_t indexCount, uint32_t indexOffset = 0, uint32_t vertexOffset = 0);
+    Dispatch& implicitVertexCount(uint32_t implicitVertexCount);
     Dispatch& instanceCount(uint32_t count);
     Dispatch& indirect(Buffer& commands, uint32_t drawCount);
 
@@ -93,6 +94,7 @@ public:
     };
 
     std::optional<GeometryMapping> geometryMapping;
+    std::optional<uint32_t> implicitVertexCnt;
 
     std::string programName;
   };
@@ -164,11 +166,53 @@ public:
     m_creationInfo.fragmentShaderOutput.colorAttachmentFormats.push_back(format);
     if (m_creationInfo.blendingConfig.attachments.size() < m_creationInfo.fragmentShaderOutput.colorAttachmentFormats.size())
     {
-      m_creationInfo.blendingConfig.attachments.push_back({
-        .blendEnable = vk::False,
-        .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-          vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-      });
+      vk::PipelineColorBlendAttachmentState attachment{};
+
+      attachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+          vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+
+      if (m_alphaBlend)
+      {
+        attachment.blendEnable = vk::True;
+        attachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+        attachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        attachment.colorBlendOp = vk::BlendOp::eAdd;
+
+        attachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+        attachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+        attachment.alphaBlendOp = vk::BlendOp::eAdd;
+      }
+      else
+      {
+        attachment.blendEnable = vk::False;
+      }
+
+      m_creationInfo.blendingConfig.attachments.push_back(attachment);
+    }
+    return *this;
+  }
+
+  VertexFragmentShader& alphaBlend(bool enable = true)
+  {
+    assert(!m_inited);
+    m_alphaBlend = enable;
+    for (auto& attachment : m_creationInfo.blendingConfig.attachments)
+    {
+       if (enable)
+       {
+         attachment.blendEnable = vk::True;
+         attachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+         attachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+         attachment.colorBlendOp = vk::BlendOp::eAdd;
+
+         attachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+         attachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+         attachment.alphaBlendOp = vk::BlendOp::eAdd;
+       }
+       else
+       {
+         attachment.blendEnable = vk::False;
+       }
     }
     return *this;
   }
@@ -189,6 +233,7 @@ private:
   std::filesystem::path m_fragmentShaderPath = "";
   std::filesystem::path m_vertexShaderPath = "";
   std::string m_programName = "";
+  bool m_alphaBlend = false;
   etna::GraphicsPipeline::CreateInfo m_creationInfo;
 
   etna::GraphicsPipeline m_etnaPipeline;

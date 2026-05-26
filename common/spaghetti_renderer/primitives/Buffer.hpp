@@ -30,7 +30,7 @@ public:
   void initAndCopy(const std::vector<T>& data)
   {
     if (m_usage == vk::BufferUsageFlags{}) useStorage();
-    memCpu2Gpu();
+    // memCpu2Gpu();
     size(data.size() * sizeof(T));
     init();
     copyFrom(data.front());

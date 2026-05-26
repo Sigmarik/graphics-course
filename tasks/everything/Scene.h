@@ -40,7 +40,7 @@ private:
   spg::FragmentOnlyShader fxaaShader{};
   SSSS subsurface{};
 
-  bool enableFXAA{true};
-  bool enableSSAO{true};
-  bool enableSSSS{true};
+  bool enableFXAA = true;
+  bool enableSSAO = true;
+  bool enableSSSS = false;
 };

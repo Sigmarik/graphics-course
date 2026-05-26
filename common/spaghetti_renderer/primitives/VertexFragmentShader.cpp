@@ -31,9 +31,12 @@ VertexFragmentShader::Dispatch::~Dispatch()
 
   cmdBuf->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->getVkPipeline());
 
-  assert(vertexBuf && indexBuf);
-  cmdBuf->bindVertexBuffers(0, {vertexBuf}, {0});
-  cmdBuf->bindIndexBuffer(indexBuf, 0, vk::IndexType::eUint32);
+  if (!implicitVertexCnt)
+  {
+    assert(vertexBuf && indexBuf);
+    cmdBuf->bindVertexBuffers(0, {vertexBuf}, {0});
+    cmdBuf->bindIndexBuffer(indexBuf, 0, vk::IndexType::eUint32);
+  }
 
   if (!bindings.empty())
   {
@@ -82,6 +85,10 @@ VertexFragmentShader::Dispatch::~Dispatch()
       0,
       instanceCnt,
       sizeof(vk::DrawIndexedIndirectCommand));
+  }
+  else if (implicitVertexCnt)
+  {
+    cmdBuf->draw(*implicitVertexCnt, instanceCnt, 0, 0);
   }
   else
   {
@@ -154,6 +161,12 @@ VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::geomMapping(uint
     .indexOffset = indexOffset,
     .vertexOffset = vertexOffset,
   };
+  return *this;
+}
+
+VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::implicitVertexCount(uint32_t implicitVertexCount)
+{
+  implicitVertexCnt = implicitVertexCount;
   return *this;
 }
 

@@ -5,6 +5,7 @@ add_library(spaghetti_renderer
         WorldRenderer.cpp
         primitives/Texture.cpp
         primitives/Buffer.cpp
+        primitives/ComputeShader.cpp
         primitives/FragmentOnlyShader.cpp
         primitives/VertexFragmentShader.cpp
 )
