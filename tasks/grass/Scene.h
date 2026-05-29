@@ -11,11 +11,11 @@ protected:
   void renderGui() override;
 
 private:
-  spg::Buffer vertices;
-  spg::Buffer indices;
+  spg::Buffer vertices{};
+  spg::Buffer indices{};
 
   unsigned numberOfGrassBlades = 5000000;
 
-  spg::Texture depth;
-  spg::VertexFragmentShader shader;
+  spg::Texture depth{};
+  spg::VertexFragmentShader shader{};
 };

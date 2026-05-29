@@ -121,6 +121,14 @@ VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attach(Texture& 
   return *this;
 }
 
+VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attach(const etna::RenderTargetState::AttachmentParams& params, glm::uvec2 resolution)
+{
+  attachments.push_back(params);
+  resolutionX = resolution.x;
+  resolutionY = resolution.y;
+  return *this;
+}
+
 VertexFragmentShader::Dispatch& VertexFragmentShader::Dispatch::attachAsDepth(Texture& texture, vk::AttachmentLoadOp loadOp)
 {
   texture.prepareForShaderWrite(*cmdBuf);
