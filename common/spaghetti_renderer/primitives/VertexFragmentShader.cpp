@@ -255,10 +255,13 @@ void VertexFragmentShader::init()
 
 VertexFragmentShader& VertexFragmentShader::vertexFormat(const etna::VertexByteStreamFormatDescription& format)
 {
+  etna::VertexShaderInputDescription::Binding binding{
+    .byteStreamDescription = format,
+    .attributeMapping = format.identityAttributeMapping(),
+  };
+
   m_creationInfo.vertexShaderInput = {
-    .bindings = {etna::VertexShaderInputDescription::Binding{
-      .byteStreamDescription = format,
-    }},
+    .bindings = {binding},
   };
   return *this;
 }
