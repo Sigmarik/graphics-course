@@ -50,6 +50,8 @@ std::optional<tinygltf::Model> SceneManager::loadModel(std::filesystem::path pat
     !model.extensions.empty() || !model.extensionsRequired.empty() || !model.extensionsUsed.empty())
     spdlog::warn("glTF: No glTF extensions are currently implemented!");
 
+  fillTextureInfo(model);
+
   return model;
 }
 
@@ -234,10 +236,24 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         hasTexcoord ? &model.bufferViews[accessors[4]->bufferView] : nullptr,
       };
 
+      std::uint32_t texIdx = 0;
+      if (prim.material >= 0 && prim.material < static_cast<int>(model.materials.size()))
+      {
+        const auto& mat = model.materials[prim.material];
+        int texInfoIdx = mat.pbrMetallicRoughness.baseColorTexture.index;
+        if (texInfoIdx >= 0 && texInfoIdx < static_cast<int>(model.textures.size()))
+        {
+          int source = model.textures[texInfoIdx].source;
+          if (source >= 0) texIdx = static_cast<std::uint32_t>(source);
+        }
+      }
+
       result.relems.push_back(RenderElement{
         .vertexOffset = static_cast<std::uint32_t>(result.vertices.size()),
         .indexOffset = static_cast<std::uint32_t>(result.indices.size()),
         .indexCount = static_cast<std::uint32_t>(accessors[0]->count),
+        .albedoTextureIndex = texIdx,
+        .fallbackDiffuse = {},
       });
 
       const std::size_t vertexCount = accessors[1]->count;
@@ -302,9 +318,27 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
         // NOTE: it's faster to do a template here with specializations for all combinations than to
         // do ifs at runtime. Also, SIMD should be used. Try implementing this!
         if (hasNormals)
-          std::memcpy(&normal, ptrs[2], sizeof(normal));
+        {
+          if (accessors[2]->componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+            std::memcpy(&normal, ptrs[2], sizeof(normal));
+          if (accessors[2]->componentType == TINYGLTF_COMPONENT_TYPE_BYTE)
+          {
+            normal.x = static_cast<float>(static_cast<int8_t>(*(ptrs[2] + 0))) / 127.0f;
+            normal.y = static_cast<float>(static_cast<int8_t>(*(ptrs[2] + 1))) / 127.0f;
+            normal.z = static_cast<float>(static_cast<int8_t>(*(ptrs[2] + 2))) / 127.0f;
+          }
+        }
         if (hasTangents)
-          std::memcpy(&tangent, ptrs[3], sizeof(tangent));
+        {
+          if (accessors[3]->componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+            std::memcpy(&tangent, ptrs[3], sizeof(tangent));
+          if (accessors[3]->componentType == TINYGLTF_COMPONENT_TYPE_BYTE)
+          {
+            tangent.x = static_cast<float>(static_cast<int8_t>(*(ptrs[3] + 0))) / 127.0f;
+            tangent.y = static_cast<float>(static_cast<int8_t>(*(ptrs[3] + 1))) / 127.0f;
+            tangent.z = static_cast<float>(static_cast<int8_t>(*(ptrs[3] + 2))) / 127.0f;
+          }
+        }
         if (hasTexcoord)
           std::memcpy(&texcoord, ptrs[4], sizeof(texcoord));
 
@@ -350,6 +384,133 @@ SceneManager::ProcessedMeshes SceneManager::processMeshes(const tinygltf::Model&
   return result;
 }
 
+static int getDiffuseTextureIndexFromExtension(const tinygltf::Material& mat) {
+  auto it = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
+  if (it == mat.extensions.end())
+    return -1;
+
+  const auto& ext = it->second;
+  if (!ext.IsObject())
+    return -1;
+
+  if (!ext.Has("diffuseTexture"))
+    return -1;
+
+  const auto& diffuseTex = ext.Get("diffuseTexture");
+  if (!diffuseTex.IsObject())
+    return -1;
+
+  if (!diffuseTex.Has("index"))
+    return -1;
+
+  const auto& idxVal = diffuseTex.Get("index");
+  if (!idxVal.IsInt())
+    return -1;
+
+  return idxVal.GetNumberAsInt();
+}
+
+static glm::vec3 getDiffuseFactorFromExtension(const tinygltf::Material& mat) {
+  glm::vec3 emissiveFactor(0.0f);
+  if (mat.emissiveFactor.size() >= 3) {
+    emissiveFactor = glm::vec3(
+      static_cast<float>(mat.emissiveFactor[0]),
+      static_cast<float>(mat.emissiveFactor[1]),
+      static_cast<float>(mat.emissiveFactor[2])
+    );
+  }
+
+  auto extIt = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
+  if (extIt == mat.extensions.end())
+    return emissiveFactor;
+
+  const auto& extVal = extIt->second;
+  if (!extVal.IsObject())
+    return emissiveFactor;
+
+  if (!extVal.Has("diffuseFactor"))
+    return emissiveFactor;
+
+  const auto& factorVal = extVal.Get("diffuseFactor");
+  if (!factorVal.IsArray())
+    return emissiveFactor;
+
+  // Check array size (at least 3 elements for RGB)
+  if (factorVal.Size() < 3)
+    return emissiveFactor;
+
+  // Helper to safely extract a float from an array element
+  auto getFloat = [&](size_t idx) -> float {
+    const auto& elem = factorVal.Get(static_cast<int>(idx));
+    if (elem.IsNumber())
+      return static_cast<float>(elem.GetNumberAsDouble());
+    return 1.0f; // default if element is not a number
+  };
+
+  return glm::vec3(
+      getFloat(0),
+      getFloat(1),
+      getFloat(2)
+  ) + emissiveFactor;
+}
+
+SceneManager::ProcessedCompressedMeshes SceneManager::processCompressedMeshes(
+  const tinygltf::Model& model) const
+{
+  assert(model.buffers.size() == 1);
+  assert(model.bufferViews.size() == 2);
+
+  ProcessedCompressedMeshes result;
+  result.indexBuffer = reinterpret_cast<const uint32_t*>(&model.buffers[0].data.front());
+  result.indexCount = model.bufferViews[0].byteLength / sizeof(uint32_t);
+
+  result.vertexBuffer = &model.buffers[0].data.front() + model.bufferViews[1].byteOffset;
+  result.vertexBufferSize = model.bufferViews[1].byteLength;
+
+  assert(
+    model.bufferViews[1].byteOffset + model.bufferViews[1].byteLength ==
+    model.buffers[0].data.size());
+
+  for (const auto& mesh : model.meshes)
+  {
+    Mesh newMesh;
+    newMesh.firstRelem = static_cast<uint32_t>(result.relems.size());
+    newMesh.relemCount = static_cast<uint32_t>(mesh.primitives.size());
+    result.meshes.push_back(newMesh);
+
+    RenderElement relem;
+
+    for (const auto& prim : mesh.primitives)
+    {
+      std::uint32_t texIdx = 0;
+      glm::vec3 fallbackDiffuse(1.0f);
+      if (prim.material >= 0 && prim.material < static_cast<int>(model.materials.size()))
+      {
+        const auto& mat = model.materials[prim.material];
+        int texInfoIdx = getDiffuseTextureIndexFromExtension(mat);
+        fallbackDiffuse = getDiffuseFactorFromExtension(mat);
+        if (texInfoIdx >= 0 && texInfoIdx < static_cast<int>(model.textures.size()))
+        {
+          int source = model.textures[texInfoIdx].source;
+          if (source >= 0)
+            texIdx = static_cast<std::uint32_t>(source) + 1;
+        }
+      }
+
+      relem.indexCount = static_cast<uint32_t>(model.accessors.at(prim.indices).count);
+      relem.indexOffset =
+        static_cast<uint32_t>(model.accessors.at(prim.indices).byteOffset / sizeof(uint32_t));
+      relem.vertexOffset =
+        static_cast<uint32_t>(model.accessors.at(prim.attributes.at("POSITION")).byteOffset / 32);
+      relem.albedoTextureIndex = texIdx;
+      relem.fallbackDiffuse = fallbackDiffuse;
+      result.relems.push_back(relem);
+    }
+  }
+
+  return result;
+}
+
 void SceneManager::uploadData(
   std::span<const Vertex> vertices, std::span<const std::uint32_t> indices)
 {
@@ -369,6 +530,56 @@ void SceneManager::uploadData(
 
   transferHelper.uploadBuffer<Vertex>(*oneShotCommands, unifiedVbuf, 0, vertices);
   transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
+}
+void SceneManager::uploadCompressedData(
+  const uint32_t* index_buffer,
+  size_t index_count,
+  const unsigned char* vertex_buffer,
+  size_t vertex_buffer_size)
+{
+  unifiedVbuf = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = vertex_buffer_size,
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+    .name = "unifiedVbuf",
+  });
+
+  unifiedIbuf = etna::get_context().createBuffer(etna::Buffer::CreateInfo{
+    .size = index_count * sizeof(uint32_t),
+    .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+    .name = "unifiedIbuf",
+  });
+
+  std::vector<uint32_t> indices(index_count);
+  std::vector<unsigned char> vertices(vertex_buffer_size);
+  for (size_t i = 0; i < index_count; ++i)
+  {
+    indices.at(i) = index_buffer[i];
+  }
+  for (size_t i = 0; i < vertex_buffer_size; ++i)
+  {
+    vertices.at(i) = vertex_buffer[i];
+  }
+
+  transferHelper.uploadBuffer<unsigned char>(*oneShotCommands, unifiedVbuf, 0, vertices);
+  transferHelper.uploadBuffer<std::uint32_t>(*oneShotCommands, unifiedIbuf, 0, indices);
+}
+
+void SceneManager::fillTextureInfo(const tinygltf::Model& model)
+{
+  for (unsigned imageIdx = 0; imageIdx < model.images.size(); ++imageIdx)
+  {
+    const tinygltf::Image& image = model.images[imageIdx];
+    if (!image.image.empty())
+    {
+      ImageDescriptor desc;
+      desc.width = image.width;
+      desc.height = image.height;
+      desc.data = image.image;
+      images.emplace_back(desc);
+    }
+  }
 }
 
 void SceneManager::selectScene(std::filesystem::path path)
@@ -396,6 +607,26 @@ void SceneManager::selectScene(std::filesystem::path path)
   uploadData(verts, inds);
 }
 
+void SceneManager::selectCompressedScene(std::filesystem::path path)
+{
+  auto maybeModel = loadModel(path);
+  if (!maybeModel.has_value())
+    return;
+
+  auto model = std::move(*maybeModel);
+
+  auto [instMats, instMeshes] = processInstances(model);
+  instanceMatrices = std::move(instMats);
+  instanceMeshes = std::move(instMeshes);
+
+  auto [inds, indCnt, vertBuf, vertBufSize, relems, meshs] = processCompressedMeshes(model);
+
+  renderElements = std::move(relems);
+  meshes = std::move(meshs);
+
+  uploadCompressedData(inds, indCnt, vertBuf, vertBufSize);
+}
+
 etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription()
 {
   return etna::VertexByteStreamFormatDescription{
@@ -408,6 +639,30 @@ etna::VertexByteStreamFormatDescription SceneManager::getVertexFormatDescription
       etna::VertexByteStreamFormatDescription::Attribute{
         .format = vk::Format::eR32G32B32A32Sfloat,
         .offset = sizeof(glm::vec4),
+      },
+    }};
+}
+
+etna::VertexByteStreamFormatDescription SceneManager::getCompressedVertexFormatDescription()
+{
+  return etna::VertexByteStreamFormatDescription{
+    .stride = sizeof(Vertex),
+    .attributes = {
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32B32Sfloat,
+        .offset = 0,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR8G8B8Sint,
+        .offset = 12,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = 16,
+      },
+      etna::VertexByteStreamFormatDescription::Attribute{
+        .format = vk::Format::eR8G8B8Sint,
+        .offset = 24,
       },
     }};
 }

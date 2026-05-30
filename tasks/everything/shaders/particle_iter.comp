@@ -1,0 +1,46 @@
+#version 460
+
+layout(local_size_x = 1024) in;
+
+struct Particle {
+    float px, py, pz;
+    float vx, vy, vz;
+    float ttl;
+    float size;
+    uint colorRGBA;
+};
+
+layout(std430, binding = 0) buffer ParticlesBuffer {
+    Particle particles[];
+};
+
+layout(std430, binding = 1) buffer FreeParticlesBuffer {
+    uint freeParticles[];
+};
+
+layout(std430, binding = 2) buffer FreeCountBuffer {
+    uint freeCount;
+};
+
+layout(push_constant) uniform PushConstants {
+    float deltaTime;
+} push;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= particles.length()) return;
+
+    if (particles[idx].ttl > 0.0) {
+        particles[idx].ttl -= push.deltaTime;
+
+        particles[idx].px += particles[idx].vx * push.deltaTime;
+        particles[idx].py += particles[idx].vy * push.deltaTime;
+        particles[idx].pz += particles[idx].vz * push.deltaTime;
+
+        if (particles[idx].ttl <= 0.0) {
+            uint freeIdx = atomicAdd(freeCount, 1u);
+            freeParticles[freeIdx] = idx;
+            particles[idx].ttl = -1.0;
+        }
+    }
+}

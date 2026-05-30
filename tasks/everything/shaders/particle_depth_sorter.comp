@@ -1,0 +1,64 @@
+#version 460
+
+layout(local_size_x = 1024) in;
+
+struct Particle {
+    float px, py, pz;
+    float vx, vy, vz;
+    float ttl;
+    float size;
+    uint colorRGBA;
+};
+
+layout(std430, binding = 0) buffer ParticlesBuffer { Particle particles[]; };
+layout(std430, binding = 1) buffer SortedIndices { uint indices[]; };
+
+layout(push_constant) uniform PushConstants {
+    mat4 globalToScreen;
+} push;
+
+shared uint localIndices[1024];
+shared float localDepths[1024];
+
+void main() {
+    uint idx = gl_LocalInvocationID.x;
+
+    localIndices[idx] = indices[idx];
+
+    uint pIdx = indices[idx];
+    float depth = -100000.0;
+    if (pIdx < particles.length()) {
+        if (particles[pIdx].ttl > 0.0) {
+            vec4 pos = push.globalToScreen * vec4(particles[pIdx].px, particles[pIdx].py, particles[pIdx].pz, 1.0);
+            depth = pos.z / pos.w;
+        } else {
+            depth = 100000.0;
+        }
+    }
+
+    localDepths[idx] = depth;
+    barrier();
+
+    for (uint k = 2; k <= 1024; k <<= 1) {
+        for (uint j = k >> 1; j > 0; j >>= 1) {
+            uint ixj = idx ^ j;
+            if (ixj > idx) {
+                bool descending = (idx & k) == 0u;
+                float d1 = localDepths[idx];
+                float d2 = localDepths[ixj];
+                bool swap = descending ? (d1 < d2) : (d1 > d2);
+                if (swap) {
+                    localDepths[idx] = d2;
+                    localDepths[ixj] = d1;
+
+                    uint tmpIdx = localIndices[idx];
+                    localIndices[idx] = localIndices[ixj];
+                    localIndices[ixj] = tmpIdx;
+                }
+            }
+            barrier();
+        }
+    }
+
+    indices[idx] = localIndices[idx];
+}

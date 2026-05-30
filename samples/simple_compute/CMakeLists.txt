@@ -6,6 +6,6 @@ add_executable(simple_compute
   execute.cpp
 )
 
-target_link_libraries(simple_compute PRIVATE glm::glm etna)
+target_link_libraries(simple_compute PRIVATE glm etna)
 
 target_add_shaders(simple_compute shaders/simple.comp)

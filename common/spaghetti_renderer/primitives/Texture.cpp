@@ -1,0 +1,132 @@
+#include "Texture.hpp"
+
+#include <stb_image.h>
+
+namespace spg
+{
+
+Texture::Texture(etna::Image image)
+{
+  m_etnaImage = std::move(image);
+  m_inited = true;
+}
+
+Texture::Texture(etna::Image image, vk::ImageView fixedView) : Texture(std::move(image))
+{
+  m_viewOverride = std::move(fixedView);
+}
+
+Texture& Texture::data(const unsigned char* data)
+{
+  m_bytes = data;
+  return *this;
+}
+
+Texture Texture::loadFromPng(std::filesystem::path path, vk::CommandBuffer& cmdBuffer)
+{
+  int imageWidth = 0;
+  int imageHeight = 0;
+  int imageChannels = 0;
+  unsigned char* imagePixels = stbi_load(path.string().c_str(), &imageWidth, &imageHeight, &imageChannels, STBI_rgb_alpha);
+  if (!imagePixels)
+  {
+    throw std::runtime_error("Failed to load texture from " + path.string());
+  }
+
+  Texture texture;
+  texture.size(imageWidth, imageHeight)
+         .format(vk::Format::eR8G8B8A8Srgb)
+         .useSampled()
+         .useTransferDst()
+         .name(path.filename().string())
+         .data(imagePixels)
+         .init(&cmdBuffer);
+
+  stbi_image_free(imagePixels);
+  return texture;
+}
+
+void Texture::init(vk::CommandBuffer* cmdBuf)
+{
+  assert(!m_inited);
+  m_inited = true;
+
+  static unsigned sTextureUid = 0;
+
+  std::string name = m_name + "#" + std::to_string(sTextureUid++);
+  auto& ctx = etna::get_context();
+  etna::Image::CreateInfo info{
+    .extent = vk::Extent3D{m_width, m_height, 1},
+    .name = name,
+    .format = m_format,
+    .imageUsage = m_flags,
+  };
+
+  if (m_bytes)
+  {
+    assert(cmdBuf);
+    m_etnaImage = etna::create_image_from_bytes(info, *cmdBuf, m_bytes);
+  }
+  else
+  {
+    m_etnaImage = ctx.createImage(info);
+  }
+}
+
+void Texture::prepareForShaderRead(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage)
+{
+  assert(m_inited);
+
+  const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+  const bool isDepthStencil = (aspectMask & (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) != vk::ImageAspectFlags{};
+  const vk::ImageLayout layout = isDepthStencil ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
+                                                : vk::ImageLayout::eShaderReadOnlyOptimal;
+
+  etna::set_state(
+      cmd_buf,
+      raw().get(),
+      stage,
+      vk::AccessFlagBits2::eShaderSampledRead,
+      layout,
+      aspectMask);
+}
+
+void Texture::prepareForShaderWrite(vk::CommandBuffer& cmd_buf, vk::PipelineStageFlagBits2 stage)
+{
+  assert(m_inited);
+
+  const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+  const bool isDepthStencil = (aspectMask & (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) != vk::ImageAspectFlags{};
+
+  if (isDepthStencil)
+  {
+    etna::set_state(
+        cmd_buf,
+        raw().get(),
+        vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        aspectMask);
+    return;
+  }
+
+  etna::set_state(
+      cmd_buf,
+      raw().get(),
+      stage,
+      vk::AccessFlagBits2::eColorAttachmentWrite,
+      vk::ImageLayout::eColorAttachmentOptimal,
+      vk::ImageAspectFlagBits::eColor);
+}
+
+etna::Binding Texture::getBinding(unsigned bindingId, const etna::Sampler& sampler, unsigned arrayElem)
+{
+  const vk::ImageAspectFlags aspectMask = raw().getAspectMaskByFormat();
+  const bool isDepthStencil = (aspectMask & (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)) != vk::ImageAspectFlags{};
+  const vk::ImageLayout layout = isDepthStencil ? vk::ImageLayout::eDepthStencilReadOnlyOptimal
+                                                : vk::ImageLayout::eShaderReadOnlyOptimal;
+  etna::Binding binding(bindingId, raw().genBinding(sampler.get(), layout));
+  binding.arrayElem = arrayElem;
+  return binding;
+}
+}

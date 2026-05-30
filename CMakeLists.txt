@@ -14,7 +14,7 @@ include("cmake/get_cpm.cmake")
 
 # NOTE: uncomment to run with ASAN (works even on windows!)
 # Also note that I couldn't figure out how to make ASAN work on windows with clang & ldd.
-# We intentially set this stuff here, as it must apply globally, to all targets,
+# We intentionally set this stuff here, as it must apply globally, to all targets,
 # including our dependencies
 if(false)
   if (MSVC)
@@ -32,5 +32,5 @@ include("cmake/thirdparty.cmake")
 include("cmake/shaders.cmake")
 
 add_subdirectory(common)
-add_subdirectory(samples)
 add_subdirectory(tasks)
+add_subdirectory(samples)
